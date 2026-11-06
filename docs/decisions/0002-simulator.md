@@ -29,6 +29,12 @@ Sources checked on 5 November 2026; recheck versions during implementation.
 | YSFlight | The author's simulator source is BSD-3-Clause. We have not tested its build or control integration. [Repository](https://github.com/captainys/YSFLIGHT). |
 | X-Plane | Proprietary, with REST/WebSocket access. Commands and flight initialisation depend on version. A fallback if the preferred open-source options prove unsuitable. [Web API](https://developer.x-plane.com/article/x-plane-web-api/). |
 
+## Experiment: 6 November 2026
+
+The terminal harness passed all 13 automated checks against FlightGear 2024.1.7 on macOS ARM64: airborne telemetry, pause/resume, running engine, opposite roll/pitch responses and three repeatable baseline comparisons. Seven in-process resets completed without a crash in that run. See the [test procedure](../flightgear-test.md) for tolerances and local evidence.
+
+Earlier runs exposed harness handshake and clock-freeze bugs, which are corrected, and a FlightGear crash in a background scenery/model-loading thread. Readiness now waits for scenery as well as flight dynamics. Visual quality and long-run reliability remain unverified, so the simulator choice remains proposed.
+
 ## What would change this
 
 Revise the proposal if rendering, external control or reliable reset fails on the chosen hardware, or if the artistic direction requires a custom world. The first one-phone experiment should produce enough evidence to accept or replace this choice.

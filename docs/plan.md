@@ -10,6 +10,8 @@ Begin with an already airborne aircraft in calm weather. Turning and maintaining
 
 ## Build in small steps
 
+Start with the [terminal FlightGear test](flightgear-test.md) to check simulator feasibility before building the phone connection.
+
 | Step | Build | Learn before expanding |
 | --- | --- | --- |
 | One phone, one plane | Connect browser input through a server to a simulator; read telemetry; pause and reset | Does the chosen simulator render well on the available computer? Are controls, units and reset predictable? |

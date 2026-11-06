@@ -2,9 +2,11 @@
 
 A room of people uses a phone web app to collectively fly one simulated aircraft on a shared projection. This repository will implement that software. These notes preserve the initial research and give implementation a starting point.
 
-The project prefers open source. Audience size, venue, simulator and final control arrangement remain open. These are design notes, not evidence of a working implementation.
+The project prefers open source. Audience size, venue, simulator and final control arrangement remain open. The terminal simulator harness is an initial implementation experiment. The audience application is not implemented, and the simulator has passed the initial automated feasibility checks; visual quality and rehearsal suitability remain unverified.
 
 ## Start here
+
+- [Terminal simulator test](flightgear-test.md): run the FlightGear feasibility harness and interpret its report.
 
 - [Implementation plan](plan.md): what to build first and what to learn.
 - [Documentation approach](decisions/0001-documentation.md): keeping these notes lean and easy to change.
