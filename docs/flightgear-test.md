@@ -1,12 +1,14 @@
 # Run the FlightGear feasibility test
 
-The Python harness launches a dedicated C172P flight, tests external controls and lifecycle operations, and writes a JSON report. It uses Python 3.9 or later with no third-party packages. This is a simulator experiment; it does not implement the phone application, continuous UDP telemetry or an independent watchdog.
+The Python harness launches a dedicated C172P flight, tests external controls and lifecycle operations, and writes a JSON report. It uses uv-managed Python 3.11 or later with no third-party packages. This is a simulator experiment; it does not implement the phone application, continuous UDP telemetry or an independent watchdog.
 
 ## Prerequisites
 
+Install [uv](https://docs.astral.sh/uv/) and run `uv sync --locked` from the repository root. Configure the stable installation as described in [FlightGear profiles](flightgear-profiles.md).
+
 Install FlightGear 2024.1.7 and its matching base data. Download the C172P and KSFO scenery through the launcher once. Close FlightGear before running the harness. Disconnect game controllers and leave mouse flight controls inactive. Use the intended display and resolution when assessing rendering.
 
-The defaults find the macOS application in `/Applications` and base data in `~/Library/Application Support/FlightGear/fgdata_2024_1`. Other installations require `--binary` and `--fg-root`.
+The example installation settings find the macOS application in `/Applications` and base data in `~/Library/Application Support/FlightGear/fgdata_2024_1`. Other installations require `--binary` and `--fg-root`.
 
 Use a trusted private network. The client connects to loopback, but do not assume the FlightGear telnet server honours the host field as a binding restriction. Do not expose the command port to audience devices or the internet.
 
@@ -15,8 +17,8 @@ Use a trusted private network. The client connects to loopback, but do not assum
 From the repository directory:
 
 ```sh
-python3 scripts/flightgear_test.py --dry-run
-python3 scripts/flightgear_test.py
+uv run python scripts/flightgear_test.py --dry-run
+uv run python scripts/flightgear_test.py
 ```
 
 The first command prints the exact launch arguments without starting the simulator. The second opens FlightGear and runs the experiment. It starts at 1,000 m and approximately 46.3 m/s, in calm weather at midday. Literal simulator options and property names retain their native units; reported altitude and speed use metric units.
@@ -39,13 +41,13 @@ Press Ctrl+C to stop early. The harness attempts to pause and neutralise control
 To run only the automated checks:
 
 ```sh
-python3 scripts/flightgear_test.py --non-interactive
+uv run python scripts/flightgear_test.py --non-interactive
 ```
 
 For another installation:
 
 ```sh
-python3 scripts/flightgear_test.py --binary /path/to/fgfs --fg-root /path/to/fgdata
+uv run python scripts/flightgear_test.py --binary /path/to/fgfs --fg-root /path/to/fgdata
 ```
 
 Use `--help` for timeout, port, pulse duration and output-directory settings. Output directories must be new so previous reports are preserved.
@@ -66,6 +68,8 @@ Exit status is 0 for either automated success status, and 1 for test failure or 
 Reset tolerances are experimental: 10 m altitude, 2 m/s speed, 2° attitude/heading, 0.0001° position and 0.01 control input. Engine running state must match exactly. Each axis must produce opposite signed attitude changes greater than 0.2°. These checks establish coarse feasibility, not accurate aircraft dynamics or suitability for audience control.
 
 If a property is missing, the test fails instead of silently treating it as zero. Control read-back failures can indicate competing input sources. Reset may close the command connection; the harness reconnects and waits for flight dynamics before reading state. The harness explicitly pauses after reset; it does not establish that reset itself preserves pause.
+
+The harness shares profile resolution, asset validation, isolated `FG_HOME` state and process lifecycle handling with the launcher. Its `feasibility` profile is fixed to the experiment’s C172P starting assumptions; incompatible edits are rejected.
 
 ## Current validation
 
@@ -90,7 +94,7 @@ When running from an automation environment on macOS, Qt may wait for an applica
 ## Verify the harness
 
 ```sh
-python3 -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 The tests exercise socket framing, missing and non-finite properties, server errors, disconnects, timeouts, reset comparisons and a simulated complete experiment. They do not replace a successful run against FlightGear.

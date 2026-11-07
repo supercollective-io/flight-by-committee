@@ -1,0 +1,12 @@
+description = "Fixed stable C172P scenario used by the feasibility experiment"
+installation = "stable"
+location = "san-francisco-airborne"
+rendering = "standard"
+aircraft = "c172p"
+
+[flight]
+altitude_m = 1000
+speed_m_s = 46.3
+time_of_day = "noon"
+frozen = true
+engine_running = true

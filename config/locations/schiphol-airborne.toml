@@ -1,0 +1,5 @@
+# Central Amsterdam can stall on initial elevation lookup; start at Schiphol.
+latitude_deg = 52.3086
+longitude_deg = 4.7639
+heading_deg = 45
+on_ground = false

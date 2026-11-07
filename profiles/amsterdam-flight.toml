@@ -1,0 +1,14 @@
+description = "Fly the C172P above Schiphol in calm weather, initially paused"
+warning = "Experimental: requires C172P in the configured aircraft_dirs; verify startup, controls and reset with this nightly."
+installation = "nightly"
+location = "schiphol-airborne"
+rendering = "ws3-hdr"
+aircraft = "c172p"
+
+[flight]
+altitude_m = 1000
+speed_m_s = 46.3
+wind_m_s = 0
+time_of_day = "noon"
+frozen = true
+engine_running = true

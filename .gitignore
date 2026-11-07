@@ -1,3 +1,16 @@
+# macOS metadata
+.DS_Store
+._*
+
+# Python environment, caches and build output
 __pycache__/
 *.py[cod]
+/.venv/
+/.uv-cache/
+/build/
+/dist/
+*.egg-info/
+
+# Machine-specific installation paths and simulator output
+/config/installations.local.toml
 /test-results/

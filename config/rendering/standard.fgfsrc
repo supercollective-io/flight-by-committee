@@ -1,0 +1,4 @@
+--timeofday=noon
+--disable-real-weather-fetch
+--wind=0@0
+--log-level=info

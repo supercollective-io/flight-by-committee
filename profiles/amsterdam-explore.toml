@@ -1,0 +1,9 @@
+description = "Start above Schiphol and explore towards Amsterdam"
+installation = "nightly"
+location = "schiphol-airborne"
+rendering = "ws3-hdr"
+aircraft = "ufo"
+
+[flight]
+altitude_m = 600
+time_of_day = "noon"

@@ -6,9 +6,9 @@ The project prefers open source. Audience size, venue, simulator and final contr
 
 ## Start here
 
+- [FlightGear profiles](flightgear-profiles.md): choose saved flights, configure installations and run Python with uv.
 - [Terminal simulator test](flightgear-test.md): run the FlightGear feasibility harness and interpret its report.
 - [FlightGear nightly and Amsterdam](flightgear-nightly.md): reproduce the HDR scenery setup and find the local installation paths.
-
 - [Implementation plan](plan.md): what to build first and what to learn.
 - [Documentation approach](decisions/0001-documentation.md): keeping these notes lean and easy to change.
 - [Simulator](decisions/0002-simulator.md): proposed choice and supporting research.

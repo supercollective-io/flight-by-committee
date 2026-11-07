@@ -1,0 +1,5 @@
+description = "Inspect Schiphol terrain and object placement at ground level"
+installation = "nightly"
+location = "schiphol-ground"
+rendering = "ws3-hdr"
+aircraft = "ufo"

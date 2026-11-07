@@ -1,0 +1,13 @@
+# Copy to installations.local.toml and adjust paths for this machine.
+# Relative paths are relative to this file; ~ expands to the home directory.
+[stable]
+binary = "/Applications/FlightGear.app/Contents/MacOS/FlightGear"
+fg_root = "~/Library/Application Support/FlightGear/fgdata_2024_1"
+aircraft_dirs = ["~/Library/Application Support/FlightGear/fgdata_2024_1/Aircraft"]
+scenery = "~/Library/Application Support/FlightGear/TerraSync"
+
+[nightly]
+binary = "/Applications/FlightGear-Nightly/FlightGear.app/Contents/MacOS/FlightGear"
+fg_root = "~/FlightGear-Nightly/fgdata"
+aircraft_dirs = ["~/FlightGear-Nightly/fgdata/Aircraft"]
+scenery = "~/Library/Application Support/FlightGear/TerraSync_WS3"

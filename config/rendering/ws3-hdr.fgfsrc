@@ -1,0 +1,28 @@
+--enable-terrasync
+--compositor=Compositor/HDR/hdr
+--prop:/scenery/use-vpb=true
+--prop:/sim/rendering/scenery-path-suffix[98]/enabled=true
+--prop:/sim/rendering/scenery-path-suffix[99]/enabled=true
+# OpenStreetMap buildings, existing landmarks, pylons and vegetation.
+--prop:/sim/rendering/osm-buildings=true
+--prop:/sim/rendering/random-buildings=false
+--prop:/sim/rendering/scenery-path-suffix[0]/enabled=true
+--prop:/sim/rendering/scenery-path-suffix[2]/enabled=true
+--prop:/sim/rendering/scenery-path-suffix[3]/enabled=true
+--prop:/sim/rendering/scenery-path-suffix[4]/enabled=true
+--prop:/sim/rendering/scenery-path-suffix[5]/enabled=true
+# WS3 supplies roads: avoid the older duplicate road overlay.
+--prop:/sim/rendering/scenery-path-suffix[1]/enabled=false
+--prop:/sim/rendering/random-vegetation=true
+--prop:/sim/rendering/vegetation-density=1
+--prop:/sim/rendering/random-vegetation-shadows=true
+--prop:/sim/rendering/photoscenery/enabled=false
+--texture-filtering=16
+--visibility=25000
+--timeofday=noon
+--disable-real-weather-fetch
+--metar=EHAM 061200Z 24005KT CAVOK 12/06 Q1015
+--prop:/sim/terrasync/ai-data-enabled=false
+--disable-fullscreen
+--geometry=1440x900
+--log-level=warn

@@ -1,0 +1,6 @@
+description = "Diagnose the unresolved Keflavík WS3 elevation fault"
+warning = "Unvalidated profile: documented WS3 elevation faults at BIKF remain unresolved."
+installation = "nightly"
+location = "keflavik"
+rendering = "ws3-hdr"
+aircraft = "ufo"

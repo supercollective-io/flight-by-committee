@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+"""Launch named FlightGear profiles. Run with uv run fly."""
+import argparse
+from contextlib import contextmanager
+import datetime as dt
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shlex
+import signal
+import subprocess
+import sys
+import tomllib
+
+ROOT = Path(__file__).resolve().parents[1]
+NAME = re.compile(r'[a-zA-Z0-9][a-zA-Z0-9_-]*\Z')
+
+
+def keys(data, allowed, required, source):
+    if not isinstance(data, dict):
+        raise ValueError(f'{source}: expected a table')
+    unknown, missing = set(data) - set(allowed), set(required) - set(data)
+    if unknown or missing:
+        raise ValueError(f'{source}: unknown keys {sorted(unknown)}; missing keys {sorted(missing)}')
+
+
+def name(value):
+    if not isinstance(value, str) or not NAME.fullmatch(value):
+        raise ValueError(f'Invalid name: {value!r}')
+    return value
+
+
+def read(path):
+    with path.open('rb') as stream:
+        return tomllib.load(stream)
+
+
+def number(value, low, high, label):
+    if type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= high:
+        raise ValueError(f'{label}: expected a finite number from {low} to {high}')
+    return value
+
+
+def boolean(value, label):
+    if type(value) is not bool:
+        raise ValueError(f'{label}: expected true or false')
+    return value
+
+
+def path_value(value, base):
+    if not isinstance(value, str) or not value:
+        raise ValueError('Installation paths must be non-empty strings')
+    path = Path(value).expanduser()
+    return str(path if path.is_absolute() else (base / path).resolve())
+
+
+def installation(which, root=ROOT, binary=None, fg_root=None):
+    local = root / 'config/installations.local.toml'
+    source = local if local.exists() else root / 'config/installations.example.toml'
+    entries = read(source)
+    if which not in entries:
+        raise ValueError(f'Unknown installation {which!r} in {source}')
+    data = entries[which]
+    keys(data, ('binary', 'fg_root', 'aircraft_dirs', 'scenery'), ('binary', 'fg_root'), source)
+    data = data.copy()
+    if binary:
+        data['binary'] = str(Path(binary).expanduser().resolve())
+    if fg_root:
+        data['fg_root'] = str(Path(fg_root).expanduser().resolve())
+        data['aircraft_dirs'] = [str(Path(data['fg_root']) / 'Aircraft')]
+    for field in ('binary', 'fg_root', 'scenery'):
+        if field in data:
+            data[field] = path_value(data[field], source.parent)
+    dirs = data.get('aircraft_dirs', [str(Path(data['fg_root']) / 'Aircraft')])
+    if not isinstance(dirs, list):
+        raise ValueError('aircraft_dirs must be an array of paths')
+    data['aircraft_dirs'] = [path_value(p, source.parent) for p in dirs]
+    return data
+
+
+def resolve(profile_name, *, root=None, overrides=None):
+    """Resolve and validate configuration without touching simulator state."""
+    root = ROOT if root is None else root
+    overrides = overrides or {}
+    profile = read(root / 'profiles' / f'{name(profile_name)}.toml')
+    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight'),
+         ('description', 'installation', 'location', 'rendering', 'aircraft'), profile_name)
+    for field in ('description', 'warning'):
+        if field in profile and not isinstance(profile[field], str):
+            raise ValueError(f'{field} must be a string')
+    for field in ('installation', 'location', 'rendering', 'aircraft'):
+        profile[field] = name(overrides.get(field) or profile[field])
+    install = installation(profile['installation'], root, overrides.get('binary'), overrides.get('fg_root'))
+    location = read(root / 'config/locations' / f"{profile['location']}.toml")
+    keys(location, ('airport', 'latitude_deg', 'longitude_deg', 'heading_deg', 'on_ground'),
+         ('heading_deg', 'on_ground'), profile['location'])
+    has_coords = 'latitude_deg' in location or 'longitude_deg' in location
+    if ('airport' in location) == has_coords:
+        raise ValueError('Location must specify either airport or both coordinates')
+    flight = profile.get('flight', {})
+    keys(flight, ('altitude_m', 'speed_m_s', 'wind_m_s', 'time_of_day', 'frozen', 'engine_running'), (), 'flight')
+    flight = flight.copy()
+    if overrides.get('altitude_m') is not None:
+        flight['altitude_m'] = overrides['altitude_m']
+    preset = root / 'config/rendering' / f"{profile['rendering']}.fgfsrc"
+    # Flatten the native one-option-per-line file for an exact, portable run record.
+    options = [line.strip() for line in preset.read_text().splitlines()
+               if line.strip() and not line.lstrip().startswith('#')]
+    managed = ('--config', '--fg-', '--aircraft', '--airport', '--lat', '--lon', '--heading',
+               '--altitude', '--in-air', '--on-ground', '--units-', '--vc', '--enable-freeze',
+               '--disable-freeze', '--prop:/sim/presets/')
+    for option in options:
+        if not option.startswith('--') or option.startswith(managed):
+            raise ValueError(f'{preset}: invalid or profile-managed option {option!r}')
+    command = [install['binary'], '--launcher=false', '--ignore-autosave', '--no-default-config',
+               '--disable-sentry', '--units-meters', f"--fg-root={install['fg_root']}",
+               f"--fg-aircraft={os.pathsep.join(install['aircraft_dirs'])}", f"--aircraft={profile['aircraft']}"]
+    if 'scenery' in install:
+        command.append(f"--terrasync-dir={install['scenery']}")
+    command.extend(options)
+    if 'airport' in location:
+        command.append(f"--airport={name(location['airport'])}")
+    else:
+        for key, flag, low, high in [('latitude_deg', 'lat', -90, 90), ('longitude_deg', 'lon', -180, 180)]:
+            command.append(f'--{flag}={number(location.get(key), low, high, key)}')
+    command.append(f"--heading={number(location['heading_deg'], 0, 360, 'heading_deg')}")
+    ground = boolean(location['on_ground'], 'on_ground')
+    command.append('--on-ground' if ground else '--in-air')
+    if not ground and 'altitude_m' not in flight:
+        raise ValueError('Airborne profiles require flight.altitude_m')
+    if 'altitude_m' in flight:
+        if ground:
+            raise ValueError('altitude_m requires an airborne location')
+        command.append(f"--altitude={number(flight['altitude_m'], -500, 100000, 'altitude_m')}")
+    if 'speed_m_s' in flight:
+        speed = number(flight['speed_m_s'], 0, 1000, 'speed_m_s')
+        command.append(f'--vc={speed / (1852 / 3600):.8g}')  # --vc always uses knots.
+    if 'wind_m_s' in flight:
+        wind = number(flight['wind_m_s'], 0, 150, 'wind_m_s')
+        # Explicit fixed wind replaces preset weather, including METAR wind.
+        command = [arg for arg in command if not arg.startswith(('--metar=', '--wind='))
+                   and arg not in ('--enable-real-weather-fetch', '--disable-real-weather-fetch')]
+        command.extend(['--disable-real-weather-fetch', f'--wind=0@{wind / (1852 / 3600):.8g}'])
+    if 'time_of_day' in flight:
+        tod = flight['time_of_day']
+        if tod not in ('real', 'dawn', 'morning', 'noon', 'afternoon', 'dusk', 'evening', 'midnight'):
+            raise ValueError('Invalid time_of_day')
+        command = [arg for arg in command if not arg.startswith('--timeofday=')]
+        command.append(f'--timeofday={tod}')
+    if 'frozen' in flight:
+        command.append('--enable-freeze' if boolean(flight['frozen'], 'frozen') else '--disable-freeze')
+    if 'engine_running' in flight:
+        command.append('--prop:/sim/presets/running=' + str(boolean(flight['engine_running'], 'engine_running')).lower())
+    profile['flight'] = flight
+    return {'profile_name': profile_name, 'profile': profile, 'installation': install,
+            'location': location, 'command': command}
+
+
+def validate_assets(resolved):
+    install = resolved['installation']
+    binary = Path(install['binary'])
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise ValueError(f'FlightGear executable missing or not executable: {binary}')
+    if not (Path(install['fg_root']) / 'defaults.xml').is_file():
+        raise ValueError(f"FlightGear base data missing: {install['fg_root']}")
+    aircraft = resolved['profile']['aircraft']
+    if not any(next(Path(p).rglob(f'{aircraft}-set.xml'), None) for p in install['aircraft_dirs']):
+        raise ValueError(f'Aircraft {aircraft!r} not found in configured aircraft_dirs')
+
+
+def stop(process):
+    if process and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+@contextmanager
+def simulator(command, state, log):
+    """Own one simulator and its activation helper, including interrupt cleanup."""
+    state.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env.pop('FG_LAUNCHER', None)
+    env['FG_HOME'] = str(state.resolve())
+    process = activation = None
+    previous = signal.getsignal(signal.SIGTERM)
+    def terminate(signum, frame):
+        raise SystemExit(128 + signum)
+    signal.signal(signal.SIGTERM, terminate)
+    try:
+        process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+        if sys.platform == 'darwin':
+            try:
+                activation = subprocess.Popen(['/usr/bin/osascript', '-l', 'JavaScript', '-e', '''
+ObjC.import('AppKit');
+function run(argv) {
+  var pid = Number(argv[0]);
+  for (var attempt = 0; attempt < 40; attempt++) {
+    var app = $.NSRunningApplication.runningApplicationWithProcessIdentifier(pid);
+    if (app && !app.isNil()) {
+      if (app.isTerminated) return;
+      if (app.activateWithOptions(3)) return;
+    }
+    delay(0.25);
+  }
+  console.log('Automatic activation did not succeed; click FlightGear in the Dock.');
+}''', str(process.pid)], stdout=log, stderr=subprocess.STDOUT)
+            except OSError as exc:
+                print(f'Could not activate FlightGear: {exc}; click its Dock icon.', file=sys.stderr)
+        yield process
+    finally:
+        stop(process)
+        stop(activation)
+        signal.signal(signal.SIGTERM, previous)
+
+
+def run(resolved, root=None):
+    root = ROOT if root is None else root
+    validate_assets(resolved)
+    install = resolved['installation']
+    if 'scenery' in install:
+        Path(install['scenery']).mkdir(parents=True, exist_ok=True)
+    stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
+    directory = root / 'test-results' / resolved['profile_name'] / stamp
+    directory.mkdir(parents=True, exist_ok=False)
+    # Per-run homes also prevent simultaneous flights sharing mutable state.
+    state = directory / 'state' / resolved['profile']['installation']
+    record = dict(resolved, fg_home=str(state), started_at=stamp)
+    (directory / 'launch.json').write_text(json.dumps(record, indent=2) + '\n')
+    print(f"Starting {resolved['profile_name']}. Log: {directory / 'simulator.log'}", flush=True)
+    with (directory / 'simulator.log').open('w') as log:
+        with simulator(resolved['command'], state, log) as process:
+            status = process.wait()
+    return status if status >= 0 else 128 - status
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest='action')
+    sub.add_parser('list', help='List saved profiles')
+    launch = sub.add_parser('run', help='Run a saved profile')
+    launch.add_argument('profile')
+    for field in ('installation', 'location', 'rendering', 'aircraft', 'binary', 'fg-root'):
+        launch.add_argument('--' + field)
+    launch.add_argument('--altitude-m', type=float)
+    launch.add_argument('--dry-run', action='store_true', help='Print resolved configuration without launching or checking installed assets')
+    args = parser.parse_args(argv)
+    try:
+        if args.action in (None, 'list'):
+            profiles = sorted((ROOT / 'profiles').glob('*.toml'))
+            for index, path in enumerate(profiles, 1):
+                profile = read(path)
+                print(f"{index}. {path.stem}: {profile['description']}" + (' [experimental]' if profile.get('warning') else ''))
+            if args.action == 'list':
+                return 0
+            if not sys.stdin.isatty():
+                parser.error('Specify run PROFILE when not using an interactive terminal')
+            choice = int(input('Choose a profile number: '))
+            if not 1 <= choice <= len(profiles):
+                raise ValueError('Profile number out of range')
+            args = launch.parse_args([profiles[choice - 1].stem])
+        resolved = resolve(args.profile, overrides=vars(args))
+        if resolved['profile'].get('warning'):
+            print(resolved['profile']['warning'], file=sys.stderr)
+        if args.dry_run:
+            print(json.dumps(resolved, indent=2))
+            print('\nCommand: ' + shlex.join(resolved['command']))
+            return 0
+        return run(resolved)
+    except (OSError, ValueError, EOFError) as exc:
+        parser.error(str(exc))
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == '__main__':
+    sys.exit(main())

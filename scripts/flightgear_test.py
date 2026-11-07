@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """Terminal-driven FlightGear feasibility test; Python standard library only."""
 import argparse
+from contextlib import ExitStack
 import datetime as dt
 import json
 import math
 from pathlib import Path
 import platform
 import re
-import shutil
 import socket
-import subprocess
 import sys
 import time
+
+# Also support direct script execution under uv.
+if __package__ in (None, ''):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import flightgear
 
 PROPERTIES = {
     'altitude_m': ('/position/altitude-ft', 0.3048),
@@ -254,8 +258,8 @@ class Experiment:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--binary', default=shutil.which('fgfs') or '/Applications/FlightGear.app/Contents/MacOS/FlightGear')
-    parser.add_argument('--fg-root', type=Path, default=Path.home() / 'Library/Application Support/FlightGear/fgdata_2024_1')
+    parser.add_argument('--binary', help='Override the stable installation executable')
+    parser.add_argument('--fg-root', type=Path, help='Override the stable installation base data')
     parser.add_argument('--port', type=int, default=55401)
     parser.add_argument('--timeout', type=float, default=180)
     parser.add_argument('--pulse-seconds', type=float, default=2)
@@ -266,49 +270,53 @@ def main(argv=None):
     if (not 1 <= args.port <= 65535 or not 0 < args.pulse_seconds <= 5
             or not math.isfinite(args.timeout) or args.timeout <= 0):
         parser.error('Require port 1–65535, pulse duration >0 and <=5 s, and timeout >0')
-    command = [args.binary, '--disable-launcher', '--disable-sentry', '--log-level=info', '--ignore-autosave', '--no-default-config',
-               f'--fg-root={args.fg_root}', '--aircraft=c172p', '--airport=KSFO',
-               '--units-meters', '--altitude=1000', '--in-air', '--vc=90',
-               '--heading=280', '--roll=0', '--pitch=0', '--timeofday=noon',
-               '--wind=0@0', '--disable-real-weather-fetch', '--enable-freeze',
-               '--prop:/sim/presets/running=true', '--disable-ai-traffic',
-               f'--telnet=socket,bi,100,127.0.0.1,{args.port},tcp']
+    try:
+        resolved = flightgear.resolve('feasibility', overrides=vars(args))
+        # The experiment has fixed assumptions even if the saved profile is edited.
+        profile, location = resolved['profile'], resolved['location']
+        if (profile['installation'] != 'stable' or profile['aircraft'] != 'c172p'
+                or profile['rendering'] != 'standard'
+                or location != {'airport': 'KSFO', 'heading_deg': 280, 'on_ground': False}
+                or profile['flight'] != {'altitude_m': 1000, 'speed_m_s': 46.3,
+                                        'time_of_day': 'noon', 'frozen': True, 'engine_running': True}):
+            raise ValueError('The feasibility experiment requires its fixed stable C172P scenario')
+        command = resolved['command'] + ['--roll=0', '--pitch=0', '--disable-ai-traffic',
+                   f'--telnet=socket,bi,100,127.0.0.1,{args.port},tcp']
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     if args.dry_run:
         print(json.dumps(command, indent=2))
         return 0
-    if not Path(args.binary).is_file() or not (args.fg_root / 'defaults.xml').is_file():
-        parser.error('FlightGear binary/data not found; supply --binary and --fg-root (see docs/flightgear-test.md)')
+    try:
+        flightgear.validate_assets(resolved)
+    except ValueError as exc:
+        parser.error(str(exc))
     # Refuse to attach to or alter an existing simulator.
     with socket.socket() as probe:
         if probe.connect_ex(('127.0.0.1', args.port)) == 0:
             parser.error(f'Port {args.port} already in use; choose another --port')
     args.output.mkdir(parents=True, exist_ok=False)
     report = {'started_at': dt.datetime.now(dt.timezone.utc).isoformat(),
-              'host': platform.platform(), 'command': command, 'checks': [],
+              'host': platform.platform(), 'command': command, 'resolved': resolved, 'checks': [],
               'visual_inspection': {'status': 'not_performed'}, 'status': 'error'}
     process = experiment = None
+    resources = ExitStack()
     try:
-        with (args.output / 'simulator.log').open('w') as log:
-            process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
-            print(f'FlightGear PID {process.pid}; log: {args.output / "simulator.log"}', flush=True)
-            experiment = Experiment(args, process, report)
-            experiment.run()
-            failed = any(not check['passed'] for check in report['checks'])
-            visual = report['visual_inspection']['status']
-            report['status'] = 'fail' if failed or visual == 'fail' else ('pass' if visual == 'pass' else 'automated_pass_visual_pending')
+        log = resources.enter_context((args.output / 'simulator.log').open('w'))
+        process = resources.enter_context(flightgear.simulator(command, args.output / 'state/stable', log))
+        print(f'FlightGear PID {process.pid}; log: {args.output / "simulator.log"}', flush=True)
+        experiment = Experiment(args, process, report)
+        experiment.run()
+        failed = any(not check['passed'] for check in report['checks'])
+        visual = report['visual_inspection']['status']
+        report['status'] = 'fail' if failed or visual == 'fail' else ('pass' if visual == 'pass' else 'automated_pass_visual_pending')
     except (OSError, ValueError, RuntimeError, KeyboardInterrupt, EOFError) as exc:
         report['error'] = f'{type(exc).__name__}: {exc}'
         print(report['error'], file=sys.stderr)
     finally:
         if experiment:
             experiment.close()
-        if process and process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+        resources.close()
         (args.output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
         print(f"Report: {(args.output / 'report.json').resolve()} ({report['status']})")
     return 0 if report['status'] in ('pass', 'automated_pass_visual_pending') else 1

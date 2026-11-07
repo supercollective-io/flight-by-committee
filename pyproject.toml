@@ -1,0 +1,17 @@
+[project]
+name = "flight-by-committee"
+version = "0.1.0"
+description = "FlightGear profiles and feasibility experiments"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+fly = "scripts.flightgear:main"
+
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "scripts"
+module-root = ""

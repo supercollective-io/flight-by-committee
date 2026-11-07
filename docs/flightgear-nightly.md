@@ -7,35 +7,33 @@ exploration setup, not a validated aircraft or audience-control configuration.
 
 ## Launch
 
-From the repository root:
+Use [uv and the profile launcher](flightgear-profiles.md). From the repository root:
 
 ```sh
-./scripts/flightgear-amsterdam.sh airport
-./scripts/flightgear-amsterdam.sh city
+uv run fly run schiphol-inspect
+uv run fly run amsterdam-explore
 ```
 
-Run one at a time. `airport` starts at Schiphol (EHAM); `city` starts above
+Run one at a time. `schiphol-inspect` starts at Schiphol (EHAM); `amsterdam-explore` starts above
 Schiphol at 600 m altitude, facing northeast towards Amsterdam. Both use explicit
-coordinates (52.3086, 4.7639) and the UFO. In Finder, double-click
-`scripts/Amsterdam Airport.command` or `scripts/Amsterdam City.command` for the
-same result. The Qt launcher is bypassed because this nightly's launcher failed
+coordinates (52.3086, 4.7639) and the UFO. The Qt launcher is bypassed because this nightly's launcher failed
 to load QtQuick Controls and crashed on this machine.
 
 On this Mac, launching the executable directly can stall before normal startup
 logs until its Dock icon is clicked. The script now requests macOS activation
 of the exact process it starts, bringing FlightGear to the foreground while
-preserving terminal output. This addresses startup activation; it does not
+preserving simulator logs. This addresses startup activation; it does not
 disable App Nap or establish whether background simulation is throttled.
 
 Preview the arguments without starting FlightGear:
 
 ```sh
-./scripts/flightgear-amsterdam.sh city --print-command
+uv run fly run amsterdam-explore --dry-run
 ```
 
-Additional FlightGear options can follow the mode. The script accepts
-`FLIGHTGEAR_NIGHTLY_BINARY` and `FLIGHTGEAR_NIGHTLY_DATA` environment overrides
-for installations on another machine.
+Use the launcher’s named overrides for one-off changes. Save installation paths
+in `config/installations.local.toml`; edit profiles and rendering presets for
+repeatable settings.
 
 ## Local installation
 
@@ -48,7 +46,7 @@ for installations on another machine.
 | Stable data | `/Users/jo/Library/Application Support/FlightGear/fgdata_2024_1` |
 
 The launch script stores its separate `FG_HOME` state and timestamped logs under
-`test-results/amsterdam/`, which is ignored by Git. Large scenery and application
+`test-results/<profile>/<timestamp>/`, which is ignored by Git. Large scenery and application
 files stay outside the repository. It ignores saved/default launch options and
 sets the visual profile explicitly on each run.
 
@@ -71,7 +69,7 @@ Install a suitably compatible aircraft separately before changing `--aircraft`.
 - Online weather and AI traffic-data downloads disabled for this visual profile.
 
 Changing settings during a session does not change the scripted profile. Edit
-the script to make a repeatable change. More buildings and vegetation increase
+the TOML profile or `config/rendering/ws3-hdr.fgfsrc` to make a repeatable change. More buildings and vegetation increase
 GPU, memory and download requirements; allow initial downloads to settle before
 judging coverage or performance.
 
