@@ -1,5 +1,12 @@
 # FlightGear profiles
 
+The 747 profile supports a top-level `livery = "supercollective"` setting. On
+launch, the runner renders the repository SVG, creates a private aircraft overlay
+with the generated texture, and selects it automatically. The installed aircraft
+is unchanged. Dry runs make no asset changes.
+See the [livery workspace](../assets/liveries/747-400/README.md) for editing,
+building and adding designs.
+
 Install [uv](https://docs.astral.sh/uv/), then run from the repository root:
 
 ```sh

@@ -440,6 +440,7 @@ def main(argv=None):
         return 0
     try:
         flightgear.validate_assets(resolved)
+        flightgear.build_livery.prepare(resolved)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     # Refuse to attach to or alter an existing simulator.

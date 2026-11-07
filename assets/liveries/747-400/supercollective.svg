@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="4096" height="1024" viewBox="0 0 4096 1024">
+  <title>supercollective — Boeing 747-400 livery</title>
+  <desc>Warm white, near-black wordmarks and vermilion collective circles.
+    UV layout matches the bundled FlightGear 747-400. The symmetric tail motif
+    reads the same way on both mirrored surfaces.</desc>
+  <defs>
+    <g id="collective" fill="#171c24">
+      <circle cx="0" cy="0" r="24"/><circle cx="56" cy="0" r="24"/>
+      <circle cx="0" cy="56" r="24"/><circle cx="56" cy="56" r="24"/>
+    </g>
+    <g id="tail">
+      <rect width="540" height="330" fill="#ff512b"/>
+      <use xlink:href="#collective" transform="translate(300 180) scale(1.1)"/>
+    </g>
+  </defs>
+  <!-- Base coat across the texture avoids coloured seams at UV boundaries. -->
+  <rect width="4096" height="1024" fill="#f5f2e9"/>
+  <!-- Fuselage sides: nose left on the upper strip, nose right below it.
+       Main window rows are around y=152 and y=432. -->
+  <g fill="#171c24" font-family="Montserrat" font-weight="800" font-size="126" letter-spacing="-5">
+    <text x="740" y="133">supercollective</text>
+    <text x="510" y="406">supercollective</text>
+  </g>
+  <!-- Low, continuous stripes stay below the windows and wordmarks. -->
+  <g fill="#ff512b">
+    <rect x="0" y="196" width="2355" height="20"/>
+    <rect x="0" y="476" width="2355" height="20"/>
+  </g>
+  <!-- Engine nacelles. -->
+  <g fill="#ff512b">
+    <rect x="2407" y="0" width="298" height="235"/>
+    <rect x="2720" y="0" width="300" height="235"/>
+  </g>
+  <use xlink:href="#collective" transform="translate(2500 80) scale(.7)"/>
+  <use xlink:href="#collective" transform="translate(2810 80) scale(.7)"/>
+  <!-- Vertical stabiliser islands. The symmetric motif needs no text reversal. -->
+  <use xlink:href="#tail" transform="translate(0 630)"/>
+  <use xlink:href="#tail" transform="translate(580 630)"/>
+  <!-- Winglet islands. A geometric motif remains legible when mirrored. -->
+  <g fill="#ff512b"><rect x="3065" y="0" width="385" height="700"/></g>
+  <use xlink:href="#collective" transform="translate(3250 77) scale(.45)"/>
+  <use xlink:href="#collective" transform="translate(3250 238) scale(.45)"/>
+  <use xlink:href="#collective" transform="translate(3250 425) scale(.45)"/>
+  <use xlink:href="#collective" transform="translate(3250 608) scale(.45)"/>
+  <!-- Original construction lines, windows and doors above the paint. -->
+  <image xlink:href="details/construction.png" width="4096" height="1024" opacity=".2"/>
+  <image xlink:href="details/airframe.png" width="4096" height="1024"/>
+</svg>

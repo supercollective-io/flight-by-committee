@@ -4,6 +4,7 @@ installation = "nightly"
 location = "edsb-03-approach"
 rendering = "ws3-hdr"
 aircraft = "747-400"
+livery = "supercollective"
 initialisation = "747-400-approach"
 
 [flight]

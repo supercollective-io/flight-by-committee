@@ -13,6 +13,11 @@ import signal
 import subprocess
 import sys
 import tomllib
+import uuid
+
+if __package__ in (None, ''):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import build_livery
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r'[a-zA-Z0-9][a-zA-Z0-9_-]*\Z')
@@ -85,13 +90,15 @@ def resolve(profile_name, *, root=None, overrides=None):
     root = ROOT if root is None else root
     overrides = overrides or {}
     profile = read(root / 'profiles' / f'{name(profile_name)}.toml')
-    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight', 'properties', 'initialisation'),
+    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight', 'properties', 'initialisation', 'livery'),
          ('description', 'installation', 'location', 'rendering', 'aircraft'), profile_name)
     for field in ('description', 'warning'):
         if field in profile and not isinstance(profile[field], str):
             raise ValueError(f'{field} must be a string')
     for field in ('installation', 'location', 'rendering', 'aircraft'):
         profile[field] = name(overrides.get(field) or profile[field])
+    if 'livery' in profile:
+        build_livery.livery_directory(root, profile['aircraft'], profile['livery'])
     install = installation(profile['installation'], root, overrides.get('binary'), overrides.get('fg_root'))
     location = read(root / 'config/locations' / f"{profile['location']}.toml")
     keys(location, ('airport', 'latitude_deg', 'longitude_deg', 'heading_deg', 'on_ground'),
@@ -114,12 +121,24 @@ def resolve(profile_name, *, root=None, overrides=None):
     for option in options:
         if not option.startswith('--') or option.startswith(managed):
             raise ValueError(f'{preset}: invalid or profile-managed option {option!r}')
+    aircraft_dirs = list(install['aircraft_dirs'])
+    livery_overlay = None
+    if 'livery' in profile:
+        livery_overlay = str((root / 'test-results/liveries' / uuid.uuid4().hex).resolve())
+        aircraft_dirs.insert(0, livery_overlay)
     command = [install['binary'], '--launcher=false', '--ignore-autosave', '--no-default-config',
                '--disable-sentry', '--units-meters', f"--fg-root={install['fg_root']}",
-               f"--fg-aircraft={os.pathsep.join(install['aircraft_dirs'])}", f"--aircraft={profile['aircraft']}"]
+               f"--fg-aircraft={os.pathsep.join(aircraft_dirs)}", f"--aircraft={profile['aircraft']}"]
     if 'scenery' in install:
         command.append(f"--terrasync-dir={install['scenery']}")
     command.extend(options)
+    if 'livery' in profile:
+        livery = profile['livery']
+        livery_dir = build_livery.livery_directory(root, profile['aircraft'], livery).resolve()
+        command.extend([f'--allow-nasal-read={livery_dir}',
+                        f'--prop:/sim/model/livery/name={livery}',
+                        f'--prop:/sim/model/livery/file={livery}',
+                        f'--prop:/sim/model/livery/texture=Liveries/{livery}.png'])
     if 'initialisation' in profile:
         if profile['initialisation'] == '747-400-approach' and profile['aircraft'] != '747-400':
             raise ValueError('747-400-approach initialisation requires the 747-400 aircraft')
@@ -182,7 +201,7 @@ def resolve(profile_name, *, root=None, overrides=None):
             raise ValueError(f'{path}: initial properties require finite numbers or booleans')
         command.append(f'--prop:{path}={value}')
     return {'profile_name': profile_name, 'profile': profile, 'installation': install,
-            'location': location, 'command': command}
+            'location': location, 'command': command, 'livery_overlay': livery_overlay}
 
 
 def validate_assets(resolved):
@@ -249,6 +268,7 @@ function run(argv) {
 def run(resolved, root=None):
     root = ROOT if root is None else root
     validate_assets(resolved)
+    build_livery.prepare(resolved, root=root)
     install = resolved['installation']
     if 'scenery' in install:
         Path(install['scenery']).mkdir(parents=True, exist_ok=True)

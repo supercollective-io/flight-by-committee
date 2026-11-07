@@ -3,7 +3,9 @@ name = "flight-by-committee"
 version = "0.1.0"
 description = "FlightGear profiles and feasibility experiments"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "resvg-py>=0.5.0",
+]
 
 [project.scripts]
 fly = "scripts.flightgear:main"
