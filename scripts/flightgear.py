@@ -85,7 +85,7 @@ def resolve(profile_name, *, root=None, overrides=None):
     root = ROOT if root is None else root
     overrides = overrides or {}
     profile = read(root / 'profiles' / f'{name(profile_name)}.toml')
-    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight'),
+    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight', 'properties', 'initialisation'),
          ('description', 'installation', 'location', 'rendering', 'aircraft'), profile_name)
     for field in ('description', 'warning'):
         if field in profile and not isinstance(profile[field], str):
@@ -100,7 +100,7 @@ def resolve(profile_name, *, root=None, overrides=None):
     if ('airport' in location) == has_coords:
         raise ValueError('Location must specify either airport or both coordinates')
     flight = profile.get('flight', {})
-    keys(flight, ('altitude_m', 'speed_m_s', 'wind_m_s', 'time_of_day', 'frozen', 'engine_running'), (), 'flight')
+    keys(flight, ('altitude_m', 'speed_m_s', 'wind_m_s', 'time_of_day', 'frozen', 'engine_running', 'glideslope_deg'), (), 'flight')
     flight = flight.copy()
     if overrides.get('altitude_m') is not None:
         flight['altitude_m'] = overrides['altitude_m']
@@ -110,7 +110,7 @@ def resolve(profile_name, *, root=None, overrides=None):
                if line.strip() and not line.lstrip().startswith('#')]
     managed = ('--config', '--fg-', '--aircraft', '--airport', '--lat', '--lon', '--heading',
                '--altitude', '--in-air', '--on-ground', '--units-', '--vc', '--enable-freeze',
-               '--disable-freeze', '--prop:/sim/presets/')
+               '--disable-freeze', '--glideslope', '--prop:/sim/presets/')
     for option in options:
         if not option.startswith('--') or option.startswith(managed):
             raise ValueError(f'{preset}: invalid or profile-managed option {option!r}')
@@ -120,6 +120,13 @@ def resolve(profile_name, *, root=None, overrides=None):
     if 'scenery' in install:
         command.append(f"--terrasync-dir={install['scenery']}")
     command.extend(options)
+    if 'initialisation' in profile:
+        if profile['initialisation'] == '747-400-approach' and profile['aircraft'] != '747-400':
+            raise ValueError('747-400-approach initialisation requires the 747-400 aircraft')
+        state_file = root / 'config/aircraft' / f"{name(profile['initialisation'])}.xml"
+        if not state_file.is_file():
+            raise ValueError(f'Aircraft initialisation missing: {state_file}')
+        command.append(f'--config={state_file}')
     if 'airport' in location:
         command.append(f"--airport={name(location['airport'])}")
     else:
@@ -137,6 +144,10 @@ def resolve(profile_name, *, root=None, overrides=None):
     if 'speed_m_s' in flight:
         speed = number(flight['speed_m_s'], 0, 1000, 'speed_m_s')
         command.append(f'--vc={speed / (1852 / 3600):.8g}')  # --vc always uses knots.
+    if 'glideslope_deg' in flight:
+        if ground:
+            raise ValueError('glideslope_deg requires an airborne location')
+        command.append(f"--glideslope={number(flight['glideslope_deg'], -15, 15, 'glideslope_deg')}")
     if 'wind_m_s' in flight:
         wind = number(flight['wind_m_s'], 0, 150, 'wind_m_s')
         # Explicit fixed wind replaces preset weather, including METAR wind.
@@ -154,6 +165,22 @@ def resolve(profile_name, *, root=None, overrides=None):
     if 'engine_running' in flight:
         command.append('--prop:/sim/presets/running=' + str(boolean(flight['engine_running'], 'engine_running')).lower())
     profile['flight'] = flight
+    # Aircraft-specific initial state, kept separate from rendering presets.
+    properties = profile.get('properties', {})
+    if not isinstance(properties, dict):
+        raise ValueError('properties must be a table')
+    for path, value in properties.items():
+        if not re.fullmatch(r'/(?:[a-zA-Z0-9_-]+(?:\[\d+\])?/)*[a-zA-Z0-9_-]+(?:\[\d+\])?', path):
+            raise ValueError(f'Invalid property path: {path!r}')
+        if path.startswith(('/sim/presets/', '/sim/freeze/')):
+            raise ValueError(f'Use flight settings for {path}')
+        if type(value) is bool:
+            value = str(value).lower()
+        elif type(value) in (int, float) and math.isfinite(value):
+            value = str(value)
+        else:
+            raise ValueError(f'{path}: initial properties require finite numbers or booleans')
+        command.append(f'--prop:{path}={value}')
     return {'profile_name': profile_name, 'profile': profile, 'installation': install,
             'location': location, 'command': command}
 

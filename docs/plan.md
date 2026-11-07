@@ -2,24 +2,45 @@
 
 This is a starting direction, not a fixed specification. The [ADRs](README.md) contain the proposed technical choices; change them as experiments produce better information.
 
+## Target scenario
+
+Confirmed by the project owner on 7 November 2026:
+
+- Approximately 100 people collectively land one simulated Boeing 747-400.
+- The aircraft visibly has four engines, the distinctive upper-deck hump and upturned wingtips.
+- The destination is the airport nearest Karlsruhe. The working interpretation is Karlsruhe/Baden-Baden (FKB/EDSB), the nearby commercial airport. The [airport operator identifies the airport and its codes](https://www.baden-airpark.de/app/uploads/2024/06/FBO.pdf).
+- Participants use phones; the shared projection shows the aircraft and collective feedback.
+
+The C172P feasibility checks and Amsterdam/UFO visual exploration are supporting experiments. They do not validate the target aircraft or landing scenario.
+
 ## What matters
 
 People should understand their own contribution, the group's combined intent and the aircraft's response. The projection is central to that experience. Keep phone controls simple enough that people can look up.
 
-Begin with an already airborne aircraft in calm weather. Turning and maintaining flight are better first experiments than requiring a crowd to complete take-off or landing. Recovery and disagreement may become part of the performance; a successful landing need not be the only satisfying ending.
+Begin the prototype with an already airborne 747-400 in calm weather on a repeatable approach. Turning and maintaining flight can serve as introductory exercises. The end goal is a collective landing; recovery and disagreement can remain part of the performance.
 
 ## Build in small steps
 
-Start with the [terminal FlightGear test](flightgear-test.md) to check simulator feasibility before building the phone connection.
+The [747-400 Nightly scenario](karlsruhe-747.md) now provides a saved runway 03
+approach at EDSB, with HDR and WS3 scenery. On 7 November 2026 it passed 27
+automated checks covering the four engines, landing configuration, descent,
+control response and repeatable reset. The profile records the initial approach
+and fuel configuration; the guide defines provisional landing-success criteria.
+
+Before building the phone connection:
+
+1. Complete the interactive visual review at the intended projection resolution, including runway alignment, terrain and stutters.
+2. Demonstrate and record a landing with one operator using the landing-review harness.
+3. Decide which controls participants own and which tasks assistance or the operator performs, including thrust, flaps, landing gear and braking. Adjust the approach if the operator trial exposes problems.
 
 | Step | Build | Learn before expanding |
 | --- | --- | --- |
-| One phone, one plane | Connect browser input through a server to a simulator; read telemetry; pause and reset | Does the chosen simulator render well on the available computer? Are controls, units and reset predictable? |
+| One phone, one plane | Connect browser input through a server to the validated 747-400 approach; read telemetry; pause and reset | Does the chosen simulator render well on the available computer? Are controls, units and reset predictable? |
 | A small ensemble | Combine inputs and try shared controls versus two roles with 8–12 people | Can participants recognise their influence? Which arrangement is enjoyable and understandable? |
 | A performance prototype | Add projected group feedback, operator controls and connection recovery | Can people look up? Can the operator recover without a confusing restart? |
-| Venue rehearsal | Run the actual devices, projection and network at the intended audience size | Can everyone join and participate for the full duration? What fails, and what is the fallback? |
+| Venue rehearsal | Run the actual devices, projection and network with approximately 100 participants | Can everyone join and participate for the full duration? What fails, and what is the fallback? |
 
-The first worthwhile milestone is a twelve-person rehearsal. Custom scenery, a complete cockpit and thousands of simultaneous phones can wait.
+The first group milestone is a twelve-person rehearsal of the target approach, followed by a rehearsal with approximately 100 participants. Custom scenery, a complete cockpit and thousands of simultaneous phones can wait.
 
 ## Compare the experience
 
@@ -43,6 +64,6 @@ Synthetic clients can test server load. They cannot validate a room full of radi
 
 ## Questions to resolve as work starts
 
-The project owner needs to choose the intended feeling of the performance, approximate duration and audience size. The venue determines network access and projection constraints. Available hardware and visual ambition inform simulator selection. Decide how much participant data to record before the first recorded rehearsal; keep only what is useful for the experiment.
+The project owner still needs to choose the intended feeling of the performance and approximate duration. The target audience size is approximately 100 people. The venue determines network access and projection constraints. Available hardware and visual ambition inform simulator selection. Decide how much participant data to record before the first recorded rehearsal; keep only what is useful for the experiment.
 
 There is no committed language, framework or delivery date yet. Choose the implementation stack after the simulator connection works and the people doing the work are known.

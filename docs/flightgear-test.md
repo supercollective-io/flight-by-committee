@@ -1,6 +1,11 @@
 # Run the FlightGear feasibility test
 
-The Python harness launches a dedicated C172P flight, tests external controls and lifecycle operations, and writes a JSON report. It uses uv-managed Python 3.11 or later with no third-party packages. This is a simulator experiment; it does not implement the phone application, continuous UDP telemetry or an independent watchdog.
+By default, the Python harness launches a dedicated C172P flight, tests external controls and lifecycle operations, and writes a JSON report. It uses uv-managed Python 3.11 or later with no third-party packages. This is a simulator experiment; it does not implement the phone application, continuous UDP telemetry or an independent watchdog.
+
+For the target Nightly 747-400 scenario, use `--profile karlsruhe-747-landing`;
+see [Karlsruhe landing validation](karlsruhe-747.md) for installation, aircraft
+state and the optional operator landing review. The fixed C172P assumptions
+below apply only to the default `feasibility` profile.
 
 ## Prerequisites
 

@@ -9,5 +9,5 @@ scenery = "~/Library/Application Support/FlightGear/TerraSync"
 [nightly]
 binary = "/Applications/FlightGear-Nightly/FlightGear.app/Contents/MacOS/FlightGear"
 fg_root = "~/FlightGear-Nightly/fgdata"
-aircraft_dirs = ["~/FlightGear-Nightly/fgdata/Aircraft"]
+aircraft_dirs = ["~/FlightGear-Nightly/fgdata/Aircraft", "../test-results/assets/nightly"]
 scenery = "~/Library/Application Support/FlightGear/TerraSync_WS3"

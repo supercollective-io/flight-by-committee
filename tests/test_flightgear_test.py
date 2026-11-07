@@ -203,6 +203,96 @@ class ExperimentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'status 7'):
             fg.connect_ready(1, process, 1)
 
+class LandingExperimentTests(unittest.TestCase):
+    def experiment(self, sim):
+        resolved = fg.flightgear.resolve('karlsruhe-747-landing')
+        sim.state.update(altitude_m=768.3, airspeed_m_s=80, flaps=1,
+                         flaps_actual=1, gear_down=1, mass_kg=260000, vertical_speed_m_s=-4.19)
+        sim.state.update({k: resolved['location'][k] for k in ('latitude_deg', 'longitude_deg', 'heading_deg')})
+        sim.state.pop('engine_running')
+        for i in range(4):
+            sim.state[f'engine_{i}_running'] = 1
+            sim.state[f'throttle_{i}'] = 0.45
+        sim.state.update({f'hydraulic_{i}_mpa': 20.68 for i in range(4)})
+        sim.state.update({f'gear_{i}_position': 1 for i in range(5)})
+        sim.baseline = sim.state.copy()
+        sim.snapshot = lambda properties=None: sim.state.copy()
+        args = SimpleNamespace(port=1, timeout=1, pulse_seconds=2, non_interactive=True)
+        return fg.Experiment(args, None, {'checks': [], 'resolved': resolved})
+
+    def test_all_four_flight_engines_are_checked_apu_is_excluded(self):
+        sim = FakeSimulator()
+        experiment = self.experiment(sim)
+        sim.state['engine_3_running'] = 0
+        with patch.object(fg, 'connect_ready', return_value=sim), patch.object(fg.time, 'sleep', side_effect=sim.advance):
+            experiment.run()
+        failed = {c['name'] for c in experiment.report['checks'] if not c['passed']}
+        self.assertIn('engine 4 runs after resume', failed)
+        self.assertNotIn('engine_4_running', experiment.properties)
+
+    def test_wrong_approach_and_retracted_flaps_fail(self):
+        sim = FakeSimulator()
+        experiment = self.experiment(sim)
+        sim.state.update(latitude_deg=0, flaps_actual=0)
+        with patch.object(fg, 'connect_ready', return_value=sim), patch.object(fg.time, 'sleep', side_effect=sim.advance):
+            experiment.run()
+        failed = {c['name'] for c in experiment.report['checks'] if not c['passed']}
+        self.assertIn('approach position and heading', failed)
+        self.assertIn('landing configuration', failed)
+
+    def test_reset_mass_drift_fails(self):
+        sim = FakeSimulator()
+        experiment = self.experiment(sim)
+        sim.baseline['mass_kg'] += 50
+        with patch.object(fg, 'connect_ready', return_value=sim), patch.object(fg.time, 'sleep', side_effect=sim.advance):
+            experiment.run()
+        resets = [c for c in experiment.report['checks'] if c['name'].startswith('reset ')]
+        self.assertEqual(len(resets), 3)
+        self.assertTrue(all('mass_kg' in c['differences'] for c in resets))
+
+class ApproachReadinessTests(unittest.TestCase):
+    def test_waits_for_aircraft_initialiser_after_fdm_and_scenery(self):
+        waiting, ready = unittest.mock.Mock(), unittest.mock.Mock()
+        for client in (waiting, ready):
+            client.get.side_effect = [1, 1]
+        waiting.snapshot.return_value = {'approach_ready': 0}
+        ready.snapshot.return_value = {'approach_ready': 1}
+        process = SimpleNamespace(poll=lambda: None)
+        with patch.object(fg, 'Client', side_effect=[waiting, ready]), patch.object(fg.time, 'sleep'):
+            self.assertIs(fg.connect_ready(1, process, 1, {'approach_ready': ('/ready', 1)}), ready)
+        waiting.close.assert_called_once()
+
+class NeutralResponseTests(unittest.TestCase):
+    experiment = LandingExperimentTests.experiment
+
+    def test_response_is_measured_against_uncommanded_drift(self):
+        sim = FakeSimulator()
+        experiment = self.experiment(sim)
+        original = sim.advance
+        def advance(seconds):
+            original(seconds)
+            if not sim.paused:
+                sim.state['roll_deg'] += seconds * 3
+        with patch.object(fg, 'connect_ready', return_value=sim), patch.object(fg.time, 'sleep', side_effect=advance):
+            experiment.run()
+        check = next(c for c in experiment.report['checks'] if c['name'] == 'aileron produces opposite responses')
+        self.assertTrue(check['passed'])
+        self.assertGreater(check['neutral_response_deg'], 0)
+
+
+class DescentTests(unittest.TestCase):
+    experiment = LandingExperimentTests.experiment
+
+    def test_level_flight_cannot_pass_as_a_descending_approach(self):
+        sim = FakeSimulator()
+        experiment = self.experiment(sim)
+        sim.state['vertical_speed_m_s'] = 0
+        sim.baseline['vertical_speed_m_s'] = 0
+        with patch.object(fg, 'connect_ready', return_value=sim), patch.object(fg.time, 'sleep', side_effect=sim.advance):
+            experiment.run()
+        check = next(c for c in experiment.report['checks'] if c['name'] == 'approach descent rate')
+        self.assertFalse(check['passed'])
+
 
 if __name__ == '__main__':
     unittest.main()

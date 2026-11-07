@@ -8,7 +8,7 @@ We need one externally controlled aircraft and a projected visual world. Open so
 
 ## Proposal
 
-Try FlightGear first. It already includes aircraft, scenery and rendering, leaving more effort for the audience experience. Start with a Cessna 172-type aircraft already airborne in calm weather. Test the available show computer before committing.
+Try FlightGear first. It already includes aircraft, scenery and rendering, leaving more effort for the audience experience. The target, clarified on 7 November 2026, is approximately 100 people collectively landing a Boeing 747-400 at the airport nearest Karlsruhe, interpreted as Karlsruhe/Baden-Baden (FKB/EDSB). Verify the four engines, distinctive upper-deck hump and upturned wingtips in the selected model. Start with a repeatable airborne approach in calm weather and test the available show computer before committing. The earlier C172P experiment remains a regression baseline; its results do not establish 747-400 compatibility.
 
 Evaluate its generic protocol for continuous controls and telemetry, and its command interface for occasional lifecycle actions. Verify actual property names, signs, units, reset behaviour and control ownership for the selected aircraft and version. Joystick input, autopilot and scripts must not compete for the same axis.
 

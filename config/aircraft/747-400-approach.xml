@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<PropertyList>
+  <sim>
+    <committee>
+      <requested-glideslope-deg preserve="y"/>
+      <requested-glideslope-set type="bool" preserve="y">false</requested-glideslope-set>
+    </committee>
+  </sim>
+  <!-- Pinned FGAddon 747-400 integration. Native pressure is psi:
+       3000 psi = 20.684 MPa. The APU is excluded from the four engine pumps. -->
+  <nasal>
+    <committee_approach>
+      <script><![CDATA[
+        # The tested Nightly cannot initialise over WS3 terrain away from an
+        # airport mesh. Bootstrap above EDSB, then relocate to the approach.
+        # Never override scenery or flight-model readiness flags.
+        var approach_lat = getprop('/sim/presets/latitude-deg');
+        var approach_lon = getprop('/sim/presets/longitude-deg');
+        var approach_heading = getprop('/sim/presets/heading-deg');
+        var approach_altitude_ft = getprop('/sim/presets/altitude-ft');
+        # FlightGear clears the native glideslope preset after first use and
+        # preserves that cleared value on reset. Retain the requested angle.
+        var requested_glideslope = getprop('/sim/committee/requested-glideslope-deg');
+        if (!getprop('/sim/committee/requested-glideslope-set')) {
+          requested_glideslope = getprop('/sim/presets/glideslope-deg');
+          setprop('/sim/committee/requested-glideslope-deg', requested_glideslope);
+          setprop('/sim/committee/requested-glideslope-set', 1);
+        }
+        setprop('/sim/presets/glideslope-deg', requested_glideslope);
+        setprop('/sim/committee/approach-ready', 0);
+        setprop('/sim/presets/latitude-deg', 48.770);
+        setprop('/sim/presets/longitude-deg', 8.072);
+        setprop('/position/latitude-deg', 48.770);
+        setprop('/position/longitude-deg', 8.072);
+        # FlightGear trims the aircraft before emitting fdm-initialized.
+        # Make hydraulic actuation available to that trim calculation too.
+        for (var i = 0; i < 4; i += 1) {
+          setprop('/systems/hydraulic/pressure[' ~ i ~ ']', 3000);
+          setprop('/controls/hydraulic/engine-pump[' ~ i ~ ']', 1);
+        }
+        setlistener('/sim/signals/fdm-initialized', func {
+          var trimmed_roll = getprop('/orientation/roll-deg');
+          var trimmed_pitch = getprop('/orientation/pitch-deg');
+          for (var i = 0; i < 4; i += 1) {
+            setprop('/controls/hydraulic/engine-pump[' ~ i ~ ']', 1);
+            setprop('/controls/hydraulic/demand-pump[' ~ i ~ ']', 1);
+            hydraulic.hyd_sys[i].pressure = 3000;
+            setprop('/systems/hydraulic/pressure[' ~ i ~ ']', 3000);
+          }
+          var phase = 0;
+          var frames = 0;
+          var listener = nil;
+          listener = setlistener('/sim/signals/frame', func {
+            frames += 1;
+            if (phase == 0) {
+              setprop('/position/latitude-deg', approach_lat);
+              setprop('/position/longitude-deg', approach_lon);
+              # Restore ASL altitude after the geocentric latitude change.
+              setprop('/position/altitude-ft', approach_altitude_ft);
+              setprop('/sim/presets/latitude-deg', approach_lat);
+              setprop('/sim/presets/longitude-deg', approach_lon);
+              setprop('/sim/freeze/master', 0);
+              setprop('/sim/freeze/clock', 0);
+              phase = 1;
+            } elsif (abs(getprop('/position/latitude-deg') - approach_lat) < 0.001 and
+                     abs(getprop('/position/longitude-deg') - approach_lon) < 0.001) {
+              # JSBSim has now updated its local frame at the new location.
+              setprop('/orientation/roll-deg', trimmed_roll);
+              setprop('/orientation/pitch-deg', trimmed_pitch);
+              setprop('/orientation/heading-deg', approach_heading);
+              setprop('/position/altitude-ft', approach_altitude_ft);
+              setprop('/sim/freeze/clock', 1);
+              setprop('/sim/freeze/master', 1);
+              setprop('/sim/committee/approach-ready', 1);
+              removelistener(listener);
+            } elsif (frames > 600) {
+              setprop('/sim/freeze/clock', 1);
+              setprop('/sim/freeze/master', 1);
+              setprop('/sim/committee/approach-ready', -1);
+              print('Committee approach relocation failed; aircraft paused.');
+              removelistener(listener);
+            }
+          });
+        }, 0, 0);
+      ]]></script>
+    </committee_approach>
+  </nasal>
+</PropertyList>

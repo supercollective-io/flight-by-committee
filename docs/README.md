@@ -1,10 +1,12 @@
 # Flight by Committee
 
-A room of people uses a phone web app to collectively fly one simulated aircraft on a shared projection. This repository will implement that software. These notes preserve the initial research and give implementation a starting point.
+Approximately 100 people use a phone web app to collectively land a simulated Boeing 747-400 on a shared projection. The aircraft must visibly have four engines, the distinctive upper-deck hump and upturned wingtips. The destination is the airport nearest Karlsruhe, interpreted as Karlsruhe/Baden-Baden (FKB/EDSB). See the [implementation plan](plan.md) for the target scenario and next steps.
 
-The project prefers open source. Audience size, venue, simulator and final control arrangement remain open. The terminal simulator harness is an initial implementation experiment. The audience application is not implemented, and the simulator has passed the initial automated feasibility checks; visual quality and rehearsal suitability remain unverified.
+The project prefers open source. The venue, simulator and final control arrangement remain open. The target audience is approximately 100 people. The terminal simulator harness is an initial implementation experiment. The audience application is not implemented, and the simulator has passed the initial automated feasibility checks; visual quality and rehearsal suitability remain unverified.
 
 ## Start here
+
+- [747-400 landing at Karlsruhe](karlsruhe-747.md): launch and validate the target Nightly/HDR/WS3 scenario.
 
 - [FlightGear profiles](flightgear-profiles.md): choose saved flights, configure installations and run Python with uv.
 - [Terminal simulator test](flightgear-test.md): run the FlightGear feasibility harness and interpret its report.

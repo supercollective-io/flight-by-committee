@@ -162,3 +162,44 @@ class LifecycleTests(unittest.TestCase):
         process.wait.side_effect = [subprocess.TimeoutExpired('fake', 10), 0]
         fg.stop(process)
         process.kill.assert_called_once()
+
+class LandingProfileTests(unittest.TestCase):
+    def test_nightly_approach_has_four_throttles_and_metric_fuel(self):
+        resolved = fg.resolve('karlsruhe-747-landing')
+        self.assertIn('--glideslope=-3.0', resolved['command'])
+        self.assertEqual(resolved['profile']['installation'], 'nightly')
+        self.assertEqual(resolved['profile']['aircraft'], '747-400')
+        self.assertIn('--compositor=Compositor/HDR/hdr', resolved['command'])
+        self.assertIn('--prop:/scenery/use-vpb=true', resolved['command'])
+        props = resolved['profile']['properties']
+        self.assertEqual(sum(v for p, v in props.items() if p.endswith('/level-kg')), 20000)
+        self.assertEqual(sum(p.endswith('/throttle') for p in props), 4)
+        self.assertIn('--prop:/controls/flight/flaps=1.0', resolved['command'])
+        self.assertNotIn('--metar=', ' '.join(resolved['command']))
+
+    def test_invalid_initial_properties_are_rejected(self):
+        for suffix in ('"/bad path" = 1', '"/controls/test" = nan',
+                       '"/controls/test" = "unexpected"', '"/sim/freeze/master" = false'):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                shutil.copytree(fg.ROOT / 'profiles', root / 'profiles')
+                shutil.copytree(fg.ROOT / 'config', root / 'config')
+                p = root / 'profiles/feasibility.toml'
+                p.write_text(p.read_text() + '\n[properties]\n' + suffix + '\n')
+                with self.assertRaises(ValueError):
+                    fg.resolve('feasibility', root=root)
+
+class AircraftInstallerTests(unittest.TestCase):
+    def test_rejects_changed_archive_and_preserves_existing_aircraft(self):
+        from scripts import install_747
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory)
+            with patch.object(install_747.urllib.request, 'urlopen', return_value=io.BytesIO(b'changed')):
+                with self.assertRaisesRegex(ValueError, 'differs'):
+                    install_747.install(destination)
+            self.assertFalse((destination / '747-400').exists())
+            (destination / '747-400').mkdir()
+            with patch.object(install_747.urllib.request, 'urlopen') as download:
+                with self.assertRaisesRegex(ValueError, 'already exists'):
+                    install_747.install(destination)
+                download.assert_not_called()

@@ -15,6 +15,7 @@ uv manages Python and the project environment automatically. Use `uv run fly run
 
 | Profile | Installation / aircraft | Start |
 | --- | --- | --- |
+| `karlsruhe-747-landing` | Nightly / Boeing 747-400 | 12 km final to EDSB runway 03, calm, paused; [setup and validation](karlsruhe-747.md) |
 | `schiphol-inspect` | Nightly / UFO | Schiphol ground |
 | `amsterdam-explore` | Nightly / UFO | 600 m above Schiphol, towards Amsterdam |
 | `keflavik-diagnostic` | Nightly / UFO | BIKF; experimental, known elevation faults |
@@ -71,3 +72,8 @@ Local installation settings and run output are ignored by Git.
 ```sh
 uv run python -m unittest discover -s tests -v
 ```
+
+Profiles may include a numeric/boolean `[properties]` table for aircraft-specific
+initial state. An optional `initialisation` name loads `config/aircraft/NAME.xml`.
+Keep these separate from rendering presets; validate aircraft-specific state
+and scripts against the installed aircraft package.
