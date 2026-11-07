@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="4096" height="1024" viewBox="0 0 4096 1024">
+  <title>supercollective — Collective rhythm</title>
+  <desc>An orange lower band and repeating circles, with an ink-dark tail. FlightGear 747-400 UV layout.</desc>
+  <defs>
+    <g id="collective" fill="#171c24">
+      <circle cx="0" cy="0" r="24"/><circle cx="56" cy="0" r="24"/>
+      <circle cx="0" cy="56" r="24"/><circle cx="56" cy="56" r="24"/>
+    </g>
+    <g id="tail">
+      <rect width="540" height="330" fill="#171c24"/>
+      <g fill="#ff512b"><circle cx="300" cy="180" r="26.4"/><circle cx="361.6" cy="180" r="26.4"/><circle cx="300" cy="241.6" r="26.4"/><circle cx="361.6" cy="241.6" r="26.4"/></g>
+    </g>
+  </defs>
+  <!-- Base coat across the texture avoids coloured seams at UV boundaries. -->
+  <rect width="4096" height="1024" fill="#f5f2e9"/>
+  <!-- Fuselage sides: nose left on the upper strip, nose right below it.
+       Main window rows are around y=152 and y=432. -->
+  <g fill="#171c24" font-family="Montserrat" font-weight="800" font-size="100" letter-spacing="-4">
+    <text x="310" y="126">supercollective</text>
+    <text x="2045" y="406" text-anchor="end">supercollective</text>
+  </g>
+  <!-- Lower-fuselage rhythm; the mirrored geometry follows nose-to-tail on both sides. -->
+  <defs>
+    <g id="rhythm" fill="#ff512b">
+      <path d="M 0,230 Q 170,177 350,177 H 1850 Q 2070,177 2200,242 L 2355,276 H 0 Z"/>
+      <g fill="#f5f2e9">
+        <circle cx="1350" cy="199" r="15"/><circle cx="1400" cy="199" r="15"/>
+        <circle cx="1350" cy="237" r="15"/><circle cx="1400" cy="237" r="15"/>
+        <circle cx="1530" cy="199" r="15"/><circle cx="1580" cy="199" r="15"/>
+        <circle cx="1530" cy="237" r="15"/><circle cx="1580" cy="237" r="15"/>
+        <circle cx="1710" cy="199" r="15"/><circle cx="1760" cy="199" r="15"/>
+        <circle cx="1710" cy="237" r="15"/><circle cx="1760" cy="237" r="15"/>
+      </g>
+    </g>
+  </defs>
+  <use xlink:href="#rhythm"/>
+  <use xlink:href="#rhythm" transform="translate(2355 280) scale(-1 1)"/>
+  <!-- Engine nacelles. -->
+  <g fill="#ff512b">
+    <rect x="2407" y="0" width="298" height="235"/>
+    <rect x="2720" y="0" width="300" height="235"/>
+  </g>
+  <use xlink:href="#collective" transform="translate(2500 80) scale(.7)"/>
+  <use xlink:href="#collective" transform="translate(2810 80) scale(.7)"/>
+  <!-- Vertical stabiliser islands. The symmetric motif needs no text reversal. -->
+  <use xlink:href="#tail" transform="translate(0 630)"/>
+  <use xlink:href="#tail" transform="translate(580 630)"/>
+  <!-- Winglet islands. A geometric motif remains legible when mirrored. -->
+  <g fill="#ff512b"><rect x="3065" y="0" width="385" height="700"/></g>
+  <!-- Original construction lines, windows and doors above the paint. -->
+  <image xlink:href="details/construction.png" width="4096" height="1024" opacity=".2"/>
+  <image xlink:href="details/airframe.png" width="4096" height="1024"/>
+</svg>

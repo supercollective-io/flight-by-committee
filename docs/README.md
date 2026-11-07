@@ -9,6 +9,7 @@ The project prefers open source. The venue, simulator and final control arrangem
 - [747-400 landing at Karlsruhe](karlsruhe-747.md): launch and validate the target Nightly/HDR/WS3 scenario.
 
 - [747-400 livery workspace](../assets/liveries/747-400/README.md): edit the aircraft artwork and preview it in FlightGear.
+- [Live 3D livery studio](../preview/README.md): edit the SVG and inspect changes on the aircraft without restarting the simulator.
 - [FlightGear profiles](flightgear-profiles.md): choose saved flights, configure installations and run Python with uv.
 - [Terminal simulator test](flightgear-test.md): run the FlightGear feasibility harness and interpret its report.
 - [FlightGear nightly and Amsterdam](flightgear-nightly.md): reproduce the HDR scenery setup and find the local installation paths.

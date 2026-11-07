@@ -14,3 +14,7 @@ __pycache__/
 # Machine-specific installation paths and simulator output
 /config/installations.local.toml
 /test-results/
+/preview/node_modules/
+
+# Rendered livery textures (SVG sources and shared raster inputs are tracked)
+/assets/liveries/747-400/*.png

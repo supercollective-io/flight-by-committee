@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<PropertyList>
+  <sim>
+    <model>
+      <livery>
+        <name type="string">supercollective-aft</name>
+        <texture>Liveries/supercollective-aft.png</texture>
+      </livery>
+    </model>
+  </sim>
+</PropertyList>

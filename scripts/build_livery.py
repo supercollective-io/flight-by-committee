@@ -9,6 +9,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+# Supersample the fixed UV layout for readable lettering at close camera distances.
+TEXTURE_SIZE = (8192, 2048)
 
 
 def livery_directory(root, aircraft, name):
@@ -40,11 +42,11 @@ def build(name='supercollective', *, root=ROOT, aircraft='747-400'):
         raise ValueError('Livery SVG must use viewBox="0 0 4096 1024"')
     data = resvg_py.svg_to_bytes(
         svg_path=str(source), resources_dir=str(directory),
-        width=4096, height=1024, skip_system_fonts=True,
+        width=TEXTURE_SIZE[0], height=TEXTURE_SIZE[1], skip_system_fonts=True,
         font_files=[str(font)], font_family='Montserrat',
     )
-    if data[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', data[16:24]) != (4096, 1024):
-        raise ValueError('Renderer did not produce a 4096 × 1024 PNG')
+    if data[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', data[16:24]) != TEXTURE_SIZE:
+        raise ValueError('Renderer did not produce an 8192 × 2048 PNG')
     # Avoid changing the file when a rebuild produces identical artwork.
     if output.is_file() and output.read_bytes() == data:
         return output

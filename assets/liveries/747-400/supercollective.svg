@@ -18,14 +18,9 @@
   <rect width="4096" height="1024" fill="#f5f2e9"/>
   <!-- Fuselage sides: nose left on the upper strip, nose right below it.
        Main window rows are around y=152 and y=432. -->
-  <g fill="#171c24" font-family="Montserrat" font-weight="800" font-size="126" letter-spacing="-5">
-    <text x="740" y="133">supercollective</text>
-    <text x="510" y="406">supercollective</text>
-  </g>
-  <!-- Low, continuous stripes stay below the windows and wordmarks. -->
-  <g fill="#ff512b">
-    <rect x="0" y="196" width="2355" height="20"/>
-    <rect x="0" y="476" width="2355" height="20"/>
+  <g fill="#171c24" font-family="Montserrat" font-weight="800" font-size="72" letter-spacing="-2.5">
+    <text x="300" y="126">supercollective</text>
+    <text x="2055" y="406" text-anchor="end">supercollective</text>
   </g>
   <!-- Engine nacelles. -->
   <g fill="#ff512b">
@@ -39,10 +34,6 @@
   <use xlink:href="#tail" transform="translate(580 630)"/>
   <!-- Winglet islands. A geometric motif remains legible when mirrored. -->
   <g fill="#ff512b"><rect x="3065" y="0" width="385" height="700"/></g>
-  <use xlink:href="#collective" transform="translate(3250 77) scale(.45)"/>
-  <use xlink:href="#collective" transform="translate(3250 238) scale(.45)"/>
-  <use xlink:href="#collective" transform="translate(3250 425) scale(.45)"/>
-  <use xlink:href="#collective" transform="translate(3250 608) scale(.45)"/>
   <!-- Original construction lines, windows and doors above the paint. -->
   <image xlink:href="details/construction.png" width="4096" height="1024" opacity=".2"/>
   <image xlink:href="details/airframe.png" width="4096" height="1024"/>

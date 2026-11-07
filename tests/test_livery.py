@@ -16,6 +16,9 @@ class LiveryTests(unittest.TestCase):
         self.root = Path(self.temporary.name).resolve()
         self.assets = self.root / 'assets/liveries/747-400'
         shutil.copytree(livery.ROOT / 'assets/liveries/747-400', self.assets)
+        # Match a fresh checkout: generated livery textures are not tracked.
+        for output in self.assets.glob("*.png"):
+            output.unlink()
         self.aircraft = self.root / 'installed/747-400'
         self.destination = self.aircraft / 'Models/Liveries'
         self.destination.mkdir(parents=True)
@@ -32,7 +35,7 @@ class LiveryTests(unittest.TestCase):
         livery.prepare(self.resolved, root=self.root)
         output = self.assets / 'supercollective.png'
         first = output.read_bytes()
-        self.assertEqual(struct.unpack('>II', first[16:24]), (4096, 1024))
+        self.assertEqual(struct.unpack('>II', first[16:24]), (8192, 2048))
         modified = output.stat().st_mtime_ns
         livery.prepare(self.resolved, root=self.root)
         self.assertEqual(output.stat().st_mtime_ns, modified)

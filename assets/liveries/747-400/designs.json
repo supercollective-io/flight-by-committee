@@ -1,0 +1,27 @@
+[
+  {
+    "name": "supercollective",
+    "label": "Original",
+    "description": "Quiet forward wordmark, warm white and vermilion."
+  },
+  {
+    "name": "supercollective-bold",
+    "label": "Forward bold",
+    "description": "A larger forward wordmark, retaining the clean orange tail."
+  },
+  {
+    "name": "supercollective-billboard",
+    "label": "Billboard",
+    "description": "Oversized typography makes the fuselage the main identity."
+  },
+  {
+    "name": "supercollective-rhythm",
+    "label": "Collective rhythm",
+    "description": "An orange lower band and repeating circles, with an ink-dark tail."
+  },
+  {
+    "name": "supercollective-aft",
+    "label": "Aft signature",
+    "description": "Large aft wordmarks paired with a plain vermilion tail."
+  }
+]
