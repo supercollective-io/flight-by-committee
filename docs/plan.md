@@ -28,12 +28,14 @@ control response and repeatable reset. The profile records the initial approach
 and fuel configuration; the guide defines provisional landing-success criteria.
 
 The project owner reported a successful manual landing on 8 November 2026.
-The next slice is [one phone controlling the aircraft](phone-controls.md):
+The individual phone trial succeeded. The implemented next slice is
+[shared phone controls](phone-controls.md): equal per-session averages of
 pitch, roll, rudder, all-engine throttle and wheel brakes. Gear and flaps remain
 preset. The computer owns pause, resume and reset. Lost input releases momentary
 controls while retaining throttle and allowing flight to continue. This is the
 chosen behaviour for the single-phone slice, superseding the pause-on-expiry
-suggestion in the original control/runtime ADRs. Group fallback remains open.
+suggestion in the original control/runtime ADRs. The group uses the same fallback when everyone is inactive. Next, validate
+collective feedback and coordination with 2–4 phones, then 8–12 people.
 
 | Step | Build | Learn before expanding |
 | --- | --- | --- |
@@ -56,7 +58,7 @@ The projection should distinguish individual participation, conflicting inputs, 
 
 - Lock a phone or switch tabs while holding a command: its contribution must expire.
 - Interrupt and restore a connection: old queued controls must not replay into the current round.
-- Remove everyone from a required role: deliberately pause or enter a selected assisted state.
+- Disconnect everyone: verify neutral momentary controls, retained throttle and continuing flight. Role-specific fallback remains a later experiment.
 - Stop the coordination server: an independent simulator-side fallback must prevent the last command being held indefinitely.
 - Reset the simulator while phones are active: discard previous-round input.
 

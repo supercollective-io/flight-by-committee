@@ -58,12 +58,50 @@ class InputTests(unittest.TestCase):
         self.assertEqual(self.state.revision, revision)
         self.assertEqual(self.state.values['roll'], .5)
 
-    def test_only_one_phone_until_expiry(self):
-        self.activate()
-        self.assertTrue(self.send(session='b'*32)['busy'])
-        self.now += 1.1
-        self.assertFalse(self.send(session='b'*32)['busy'])
-        self.assertFalse(self.state.fresh())
+    def test_equal_votes_neutral_input_and_independent_challenges(self):
+        a = self.activate(roll=1, throttle=.8)
+        b = self.send(session='b'*32)
+        b = self.send(self.controls(roll=-1, throttle=.2, brake=1), b['challenge'], 'b'*32)
+        for _ in range(5):
+            a = self.send(self.controls(roll=1), a['challenge'])
+        self.assertEqual(self.state.values['roll'], 0)
+        self.assertEqual(self.state.values['throttle'], .5)
+        self.assertEqual(self.state.values['brake'], .5)
+        self.assertEqual(a['count'], 2)
+        b = self.send(self.controls(roll=0), b['challenge'], 'b'*32)
+        self.assertEqual(self.state.values['roll'], .5)
+        self.assertEqual(b['personal_throttle'], .2)
+
+    def test_expiry_removes_only_inactive_phone_and_rejoin_reseeds_throttle(self):
+        a = self.activate(roll=1, throttle=.8)
+        b = self.send(session='b'*32)
+        b = self.send(self.controls(roll=-1, throttle=.2), b['challenge'], 'b'*32)
+        for _ in range(3):
+            self.now += .4
+            a = self.send(self.controls(roll=1), a['challenge'])
+        self.assertEqual(self.state.values['roll'], 1)
+        self.assertEqual(a['count'], 1)
+        self.assertNotIn('b'*32, self.state.sessions)
+        b = self.send(self.controls(roll=-1, throttle=.2), b['challenge'], 'b'*32)
+        self.assertTrue(b['resync'])
+        self.assertEqual(b['personal_throttle'], .8)
+
+    def test_release_brakes_preserves_other_participants_vote(self):
+        self.activate(brake=1)
+        b = self.send(session='b'*32)
+        self.state.exchange(dict(session='b'*32, challenge=b['challenge'],
+                                 controls=self.controls(brake=1), release_brakes=True))
+        self.assertEqual(self.state.values['brake'], .5)
+
+    def test_new_participant_uses_group_throttle_and_readback_does_not_change_votes(self):
+        self.state.throttle = .4
+        a = self.activate()
+        self.assertEqual(a['personal_throttle'], .4)
+        self.send(self.controls(throttle=.8), a['challenge'])
+        self.state.throttle = .5
+        b = self.send(session='b'*32)
+        self.assertEqual(b['personal_throttle'], .8)
+        self.assertEqual(self.state.values['throttle'], .8)
 
     def test_reset_invalidates_old_challenge_and_throttle(self):
         response = self.activate(throttle=.8)
@@ -77,6 +115,28 @@ class InputTests(unittest.TestCase):
         response = self.activate(throttle=.7)
         self.send(self.controls(), response['challenge'])
         self.assertEqual(self.state.values['throttle'], .7)
+
+    def test_reset_invalidates_every_participant(self):
+        a = self.activate(throttle=.8)
+        b = self.send(session='b'*32)
+        b = self.send(self.controls(throttle=.2), b['challenge'], 'b'*32)
+        self.state.invalidate()
+        self.state.throttle = .45
+        for session, response in ((self.session, a), ('b'*32, b)):
+            result = self.send(self.controls(throttle=1), response['challenge'], session)
+            self.assertTrue(result['resync'])
+            self.assertEqual(result['personal_throttle'], .45)
+        self.assertFalse(self.state.fresh())
+
+    def test_abandoned_handshake_and_pending_release_expire(self):
+        a = self.send()
+        self.state.exchange(dict(session=self.session, challenge=a['challenge'],
+                                 controls=self.controls(), release_brakes=True))
+        self.send(session='b'*32)
+        self.now += 1.1
+        self.assertEqual(self.state.status()['count'], 0)
+        self.assertEqual(self.state.sessions, {})
+        self.assertEqual(self.state.brake_release, 0)
 
     def test_invalid_frames_cannot_change_controls(self):
         for invalid in (self.controls(roll=float('nan')), self.controls(brake=2),
@@ -133,7 +193,7 @@ class HTTPTests(unittest.TestCase):
             self.assertNotIn(b'id="reset"', body)
             status = json.loads(request('GET', '/status?key=test-key')[1])
             self.assertTrue(status['simulator'])
-            self.assertIsNone(state.owner)
+            self.assertEqual(state.sessions, {})
             message = dict(session='a'*32, challenge=None, controls=None)
             challenge = json.loads(request('POST', '/input?key=test-key', message)[1])['challenge']
             message.update(challenge=challenge, controls=dict(roll=1,pitch=0,rudder=0,brake=1,throttle=.5))
@@ -179,7 +239,7 @@ class InMemoryHTTPTests(unittest.TestCase):
         self.assertEqual(request('GET', '/')[0], b'403')
         self.assertIn(b'Hold to brake', request('GET', '/?key=secret')[1])
         self.assertTrue(json.loads(request('GET', '/status?key=secret')[1])['ready'])
-        self.assertIsNone(state.owner)
+        self.assertEqual(state.sessions, {})
         self.assertEqual(request('GET', '/qr.svg')[0], b'403')
         self.assertEqual(request('GET', '/qr.svg?key=secret')[1], b'<svg/>')
         self.assertEqual(json.loads(request('GET', '/join?key=secret')[1])['url'], state.join_url)
@@ -189,7 +249,7 @@ class InMemoryHTTPTests(unittest.TestCase):
         self.assertTrue(json.loads(request('POST', '/input?key=secret', payload)[1])['active'])
         self.assertEqual(request('POST', '/reset?key=secret', payload)[0], b'403')
         payload['controls']['roll'] = 2
-        payload['challenge'] = state.challenge
+        payload['challenge'] = state.sessions['a'*32]['challenge']
         self.assertEqual(request('POST', '/input?key=secret', payload)[0], b'400')
 
 
@@ -236,7 +296,7 @@ class BridgeTests(unittest.TestCase):
             phone.bridge(state, 9999, Stop())
         self.assertIn('set ' + phone.PREFIX + 'roll 0.4', commands)
         self.assertIn('set ' + phone.PREFIX + 'throttle 0.8', commands)
-        self.assertIn('set ' + phone.PREFIX + 'throttle -1', commands)
+        self.assertEqual(commands.count('set ' + phone.PREFIX + 'throttle 0.8'), 2)
         self.assertIn('set ' + phone.PREFIX + 'alive 0', commands)
         self.assertEqual(state.throttle, .8)
         self.assertFalse(state.fresh())
@@ -260,7 +320,7 @@ class BridgeTests(unittest.TestCase):
         self.assertIn('set ' + phone.PREFIX + 'frame-generation 2', commands)
         self.assertIn('set ' + phone.PREFIX + 'alive 0', commands)
         self.assertFalse(any('roll 1' in c or 'throttle 1' in c for c in commands))
-        self.assertIsNone(state.challenge)
+        self.assertEqual(state.sessions, {})
 
 
 class JoinTests(unittest.TestCase):
@@ -323,6 +383,7 @@ class BrakeReleaseTests(unittest.TestCase):
         self.assertIn('/autopilot/autobrake/step', script)
         self.assertIn("brake-release-ack", script)
         self.assertIn('setprop(path, 0)', script)
+        self.assertLess(script.index('var release_id'), script.index('value * mapping[axis].scale'))
         self.assertNotIn('RELEASE_PATHS', script)
 
     def test_release_is_cleared_only_after_simulator_acknowledgement(self):

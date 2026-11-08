@@ -54,3 +54,15 @@ for landing. There is no separate operator flying the remaining controls:
 the computer only manages the simulation. Input loss releases momentary
 controls, retains throttle and leaves flight running. Multi-person allocation,
 aggregation and assistance remain experiments for a later slice.
+
+## Small-ensemble implementation — 8 November 2026
+
+Everyone now has the same direct controls. The bridge averages the latest fresh
+input per session for all five controls, including neutral votes. Throttle is a
+persistent per-participant choice, seeded from the group on joining; simulator
+read-back does not overwrite votes. Explicit brake release clears that person's
+vote and parking/automatic brakes while preserving others' wheel-brake votes.
+Phone feedback distinguishes personal and group commands; the computer monitor
+shows the pitch/roll distribution. Empty participation retains the single-phone
+fallback: neutral momentary controls, retained throttle, continuing flight.
+Roles, assistance and smoothing remain deferred until a small-group trial.

@@ -88,14 +88,14 @@ var tick = func {
       if (active) release();
       return;
     }
-    foreach (var axis; momentary) {
-      var value = getprop(base ~ axis);
-      foreach (var path; mapping[axis].paths) setprop(path, value * mapping[axis].scale);
-    }
     var release_id = getprop(base ~ 'brake-release');
     if (release_id != nil and release_id > 0 and release_id != getprop(base ~ 'brake-release-ack')) {
       foreach (var path; RELEASE_PATHS) setprop(path, 0);
       setprop(base ~ 'brake-release-ack', release_id);
+    }
+    foreach (var axis; momentary) {
+      var value = getprop(base ~ axis);
+      foreach (var path; mapping[axis].paths) setprop(path, value * mapping[axis].scale);
     }
     var throttle = getprop(base ~ 'throttle');
     if (throttle != nil and throttle >= 0) {
@@ -176,12 +176,9 @@ class State:
     def __init__(self, config, clock=time.monotonic):
         self.config, self.clock = config, clock
         self.lock = threading.Lock()
-        self.owner = None
-        self.last_input = -math.inf
-        self.values = dict(roll=0, pitch=0, rudder=0, brake=0, throttle=None)
-        self.challenge = None
-        self.issued = 0
+        self.sessions = {}
         self.brake_release = 0
+        self.release_owner = None
         self.release_counter = 0
         self.revision = 0
         self.ready = False
@@ -194,16 +191,39 @@ class State:
 
     def invalidate(self):
         self.brake_release = 0
-        self.last_input = -math.inf
-        self.challenge = None
-        self.values = dict(roll=0, pitch=0, rudder=0, brake=0, throttle=None)
+        self.sessions.clear()
+        self.release_owner = None
+
+    def participants(self):
+        now = self.clock()
+        for session, participant in list(self.sessions.items()):
+            if now - max(participant['last_input'], participant['issued']) >= self.config['expiry_s']:
+                del self.sessions[session]
+        active = [p for p in self.sessions.values()
+                  if self.ready and now - p['last_input'] < self.config['expiry_s']]
+        if self.release_owner is not None and self.sessions.get(self.release_owner) not in active:
+            self.brake_release = 0
+            self.release_owner = None
+        return active
 
     def fresh(self):
-        return self.ready and self.clock() - self.last_input < self.config['expiry_s']
+        return bool(self.participants())
+
+    @property
+    def values(self):
+        participants = self.participants()
+        if not participants:
+            return dict(roll=0, pitch=0, rudder=0, brake=0, throttle=None)
+        return {axis: sum(p['values'][axis] for p in participants) / len(participants)
+                for axis in AXES}
 
     def status(self):
-        return dict(simulator=self.connected, ready=self.ready, active=self.fresh(),
-                    throttle=self.throttle, accepted=self.applied)
+        participants = self.participants()
+        return dict(simulator=self.connected, ready=self.ready, active=bool(participants),
+                    count=len(participants), throttle=self.throttle, accepted=self.applied,
+                    collective=self.values,
+                    inputs=[{axis: p['values'][axis] for axis in ('roll', 'pitch')}
+                            for p in participants])
 
     def exchange(self, data):
         if not isinstance(data, dict) or set(data) - {'session', 'challenge', 'controls', 'release_brakes'}:
@@ -214,17 +234,22 @@ class State:
         if not isinstance(session, str) or not re.fullmatch(r'[a-zA-Z0-9-]{16,80}', session):
             raise ValueError('Invalid session')
         now = self.clock()
-        if self.last_input != -math.inf and now - self.last_input >= self.config['expiry_s']:
-            self.invalidate()
-        if self.owner != session and now - self.last_input < self.config['expiry_s']:
-            return dict(self.status(), busy=True)
-        if self.owner != session:
-            self.owner = session
-            self.invalidate()
+        self.participants()  # Prune abandoned handshakes and expired sessions.
+        participant = self.sessions.get(session)
+        if participant is not None and now - participant['last_input'] >= self.config['expiry_s'] and participant['last_input'] != -math.inf:
+            del self.sessions[session]
+            participant = None
+        if participant is None:
+            throttle = self.values['throttle']
+            participant = dict(last_input=-math.inf, challenge=None, issued=now,
+                               values=dict(roll=0, pitch=0, rudder=0, brake=0,
+                                           throttle=self.throttle if throttle is None else throttle))
+            self.sessions[session] = participant
         controls = data.get('controls')
-        valid = (self.ready and self.challenge is not None and data.get('challenge') == self.challenge
-                 and now - self.issued < 0.5)
-        self.challenge = None  # Single use, even if the message is invalid.
+        valid = (self.ready and participant['challenge'] is not None
+                 and data.get('challenge') == participant['challenge']
+                 and now - participant['issued'] < 0.5)
+        participant['challenge'] = None  # Single use, even for invalid frames.
         if controls is not None and valid:
             if not isinstance(controls, dict) or set(controls) != set(AXES):
                 raise ValueError('A complete control frame is required')
@@ -234,19 +259,22 @@ class State:
                 low = -1 if axis in ('roll', 'pitch', 'rudder') else 0
                 if type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= 1:
                     raise ValueError('Control outside its range')
-            pending_throttle = self.values['throttle']
-            self.values = controls.copy()
-            if self.values['throttle'] is None:
-                self.values['throttle'] = pending_throttle
+            pending_throttle = participant['values']['throttle']
+            participant['values'] = controls.copy()
+            if participant['values']['throttle'] is None:
+                participant['values']['throttle'] = pending_throttle
             if data.get('release_brakes'):
                 self.release_counter += 1
                 self.brake_release = self.release_counter
-                self.values['brake'] = 0
-            self.last_input = now
+                self.release_owner = session
+                participant['values']['brake'] = 0
+            participant['last_input'] = now
             self.revision += 1
-        self.challenge = secrets.token_hex(16)
-        self.issued = now
-        return dict(self.status(), challenge=self.challenge, resync=not valid, busy=False)
+        participant['challenge'] = secrets.token_hex(16)
+        participant['issued'] = now
+        return dict(self.status(), challenge=participant['challenge'], resync=not valid,
+                    personal_throttle=participant['values']['throttle'])
+
 
 
 def bridge(state, port, stop):
@@ -268,9 +296,6 @@ def bridge(state, port, stop):
                         state.invalidate()
                     state.generation, state.ready, state.connected = generation, ready, True
                     state.throttle = throttle
-                    pending = state.values['throttle']
-                    if pending is not None and abs(throttle - pending) < 0.001:
-                        state.values['throttle'] = None
                     fresh = state.fresh()
                     values = state.values.copy()
                     brake_release = state.brake_release
@@ -306,7 +331,7 @@ def bridge(state, port, stop):
             with state.lock:
                 status = ('FlightGear unavailable' if not state.connected else
                           'Waiting for approach readiness' if not state.ready else
-                          'Phone connected — aircraft control active' if state.fresh() else
+                          f'{len(state.participants())} participants — aircraft control active' if state.fresh() else
                           'Phone disconnected — flight continues')
             if status != last_status:
                 print(status, flush=True)

@@ -1,7 +1,7 @@
 # Phone aircraft controls
 
-The Karlsruhe landing profile now selects a single-phone input layout. Launch on
-the computer, then use the phone for aircraft controls only:
+The Karlsruhe landing profile now selects a shared phone input layout. Launch on
+the computer, then use phones for aircraft controls only:
 
 ```sh
 uv run fly run karlsruhe-747-landing
@@ -28,26 +28,39 @@ computer. The phone has no simulation-management actions.
 | Control | Action |
 | --- | --- |
 | Touch pad | Left/right rolls; drag down to raise the nose, up to lower it. Release centres both controls. |
-| Throttle | Vertical slider: up increases thrust, down reduces it. Sets all four engines together; holds its setting. Initially displays the simulator's trimmed throttle. |
+| Throttle | Vertical slider: up increases thrust, down reduces it. Sets all four engines together; holds its setting. Initially matches the group throttle (or simulator throttle for the first participant). |
 | Rudder | Hold left/right for yaw and nosewheel steering. |
 | Hold to brake | Hold for both wheel brakes; lift your finger to disengage. |
-| Release brakes | Explicitly releases wheel, copilot and parking brakes and switches autobrake off. |
+| Release brakes | Releases your brake input, clears parking/copilot brakes and switches autobrake off; others can still brake. |
 
 Gear and flaps are preset by the approach. The input adapter leaves trim alone.
 Disable mouse flight control and disconnect joysticks so they do not compete
 with the phone. There is no autopilot or stabilisation added by the phone input.
-Only one phone can control the aircraft at a time. A second phone sees that the
-slot is occupied; it can take control once the first phone's input has expired.
+Everyone joining the same QR code controls the aircraft together. Each active
+session contributes one equally weighted input, averaged separately for pitch,
+roll, rudder, wheel brakes and throttle. Centred input counts; expired input does
+not. More messages do not give a participant more influence. One phone is the
+single-participant case of the same calculation.
+
+The filled pad marker shows your command; the amber ring shows the collective
+command, not aircraft attitude. Use the pad and vertical throttle simultaneously
+with two thumbs. Your throttle slider keeps your own setting; the amber marker
+and Group percentage show the collective setting. New and reconnecting
+participants start at the group throttle, avoiding a jump on joining.
+
+The computer monitor shows the active count, aggregate controls and individual
+pitch/roll dots. Opposing commands are visible even when the mean is zero.
+Sessions are anonymous browser-tab identities, not verified people.
 
 ## Connection feedback and recovery
 
 The phone distinguishes server disconnection, FlightGear unavailability,
-approach initialisation and another phone owning control. The terminal reports
+approach initialisation and active participant count. The terminal reports
 connection transitions. For a persistent computer display, open a join URL with
 `&monitor=1` appended. That page observes status without claiming controls.
 
-After approximately one second without fresh phone input, the bridge requests
-neutral pitch, roll, rudder and brakes. Throttle and trim are retained and flight
+After approximately one second without fresh input, that participant leaves the
+average. With nobody active, the bridge requests neutral pitch, roll, rudder and brakes. Throttle and trim are retained and flight
 continues. A separate FlightGear Nasal watchdog releases momentary controls
 if the bridge stops updating. It checks wall-clock time on rendered frames,
 including while paused; a frozen renderer cannot execute that check until its
@@ -88,8 +101,8 @@ the internet. FlightGear's command socket binds only to `127.0.0.1` on a tempora
 port; phones can only submit the defined aircraft controls and brake-release action.
 
 The browser sends complete momentary state approximately every 100 ms, with
-only one HTTP request in flight. Throttle changes are retained until simulator
-read-back confirms them. Responses carry a single-use challenge valid for
+only one HTTP request in flight. Each participant’s throttle choice is retained while their input remains fresh;
+simulator read-back does not overwrite individual choices. Responses carry a single-use challenge valid for
 500 ms; delayed/replayed requests cannot refresh input. The adapter runs at
 approximately 10 Hz plus property-connection overhead. There is no WebSocket
 or additional Python dependency in this slice.
@@ -107,10 +120,15 @@ watchdog messages appear in `simulator.log`.
 3. Fly and land using the phone, brake to a stop, then reset from the computer.
 4. While holding a control, lock the phone or interrupt Wi-Fi. Verify control
    release, unchanged throttle, continuing flight and disconnected status.
-5. Rejoin and verify old touches do not return. Try a second phone and reset
-   while the first is active.
+5. Rejoin and verify old touches do not return. Join a second phone, oppose pitch/roll commands, and check that they cancel.
+   Release one pad and check that it still contributes zero. Adjust throttle
+   on both phones and check their choices stay separate from the group value.
+6. Hold brakes on both phones, then use Release brakes on one: the other should
+   still contribute half braking. Disconnect one phone and verify the remaining
+   participant gains full influence. Reset with both active and check fresh touches
+   are required and throttle synchronises to the saved approach.
 
-Automated checks cover profile validation, freshness, ownership, reset
+Automated checks cover profile validation, freshness, equal weighting, independent expiry, throttle choices, reset
 invalidation, HTTP routes and browser touch lifecycles. A real phone/network
 and live FlightGear trial is still required; this is not validation for a room
 of participants.

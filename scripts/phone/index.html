@@ -5,14 +5,16 @@
 <meta name="referrer" content="no-referrer">
 <title>Flight by committee · Flight controls</title>
 <style>
-:root{color-scheme:dark;font:16px system-ui;background:#101820;color:#eef4f5}*{box-sizing:border-box}body{margin:0 auto;padding:18px;max-width:640px}h1{font-size:22px;margin:0 0 12px}p{color:#aebdc5}#status{padding:12px;border:1px solid #71818c;border-radius:10px;margin-bottom:16px}#status.live{border-color:#6ae2ba;color:#6ae2ba}.controls{display:grid;gap:18px}#pad{height:clamp(180px,38vh,330px);background:linear-gradient(90deg,transparent 49.7%,#4b606c 50%,transparent 50.3%),linear-gradient(transparent 49.7%,#4b606c 50%,transparent 50.3%),#1b2c37;border:1px solid #65808f;border-radius:18px;position:relative;touch-action:none;user-select:none}#pad span{position:absolute;pointer-events:none}#dot{width:24px;height:24px;background:#6ae2ba;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}.top{top:12px;left:50%;transform:translateX(-50%)}.bottom{bottom:12px;left:50%;transform:translateX(-50%)}.left{left:12px;top:45%}.right{right:12px;top:45%}label{display:block}input[type=range]{width:100%;height:44px;accent-color:#6ae2ba;touch-action:none}.row{display:flex;gap:12px}button{flex:1;min-height:64px;border:1px solid #65808f;background:#1b2c37;border-radius:12px;color:inherit;font:inherit;touch-action:none;user-select:none}button.held{background:#306750}#brake{width:100%}small{color:#aebdc5}output{float:right}.disabled{opacity:.45;pointer-events:none}#feedback{font-variant-numeric:tabular-nums;font-size:14px;min-height:20px}#monitor{display:none}a{color:#6ae2ba}
-.flight-row{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:16px;align-items:stretch}.throttle-control{display:flex;flex-direction:column;align-items:center;gap:8px}.throttle-control output{float:none}#throttle{writing-mode:vertical-lr;direction:rtl;width:48px;height:100%;min-height:150px;flex:1}#brake{width:auto}
+:root{color-scheme:dark;font:16px system-ui;background:#101820;color:#eef4f5}*{box-sizing:border-box}body{margin:0 auto;padding:18px;max-width:640px}h1{font-size:22px;margin:0 0 12px}p{color:#aebdc5}#status{padding:12px;border:1px solid #71818c;border-radius:10px;margin-bottom:16px}#status.live{border-color:#6ae2ba;color:#6ae2ba}.controls{display:grid;gap:18px}#pad{height:100%;min-height:0;background:linear-gradient(90deg,transparent 49.7%,#4b606c 50%,transparent 50.3%),linear-gradient(transparent 49.7%,#4b606c 50%,transparent 50.3%),#1b2c37;border:1px solid #65808f;border-radius:18px;position:relative;touch-action:none;user-select:none}#pad span{position:absolute;pointer-events:none}#dot{width:24px;height:24px;background:#6ae2ba;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}.top{top:12px;left:50%;transform:translateX(-50%)}.bottom{bottom:12px;left:50%;transform:translateX(-50%)}.left{left:12px;top:45%}.right{right:12px;top:45%}label{display:block}input[type=range]{width:100%;height:44px;accent-color:#6ae2ba;touch-action:none}.row{display:flex;gap:12px}button{flex:1;min-height:64px;border:1px solid #65808f;background:#1b2c37;border-radius:12px;color:inherit;font:inherit;touch-action:none;user-select:none}button.held{background:#306750}#brake{width:100%}small{color:#aebdc5}output{float:right}.disabled{opacity:.45;pointer-events:none}#feedback{font-variant-numeric:tabular-nums;font-size:14px;min-height:20px}#monitor{display:none}a{color:#6ae2ba}
+.flight-row{display:grid;grid-template-columns:minmax(0,1fr) 76px;height:clamp(180px,42vh,360px);height:clamp(180px,42svh,360px);gap:16px;align-items:stretch}.throttle-control{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;justify-items:center;min-height:0;gap:8px}.throttle-control output{float:none}#throttle{writing-mode:vertical-lr;direction:rtl;position:absolute;inset:0;width:48px;height:100%;min-height:0;margin:0}#brake{width:auto}
+#group-dot{width:32px;height:32px;border:3px solid #ffca75;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}
+#group-dot[hidden]{display:none}.throttle-control{position:relative}.throttle-track{position:relative;width:48px;min-height:0;align-self:stretch}#group-power-marker{position:absolute;right:0;width:12px;height:3px;background:#ffca75;pointer-events:none}#group-power{color:#ffca75;font-size:13px;white-space:nowrap}#release-brakes{flex:0 1 110px;font-size:14px;min-height:48px}#brake{flex:1}.legend{font-size:12px;color:#aebdc5;margin-top:6px}.legend strong{color:#ffca75;font-weight:400}#distribution{width:100%;height:auto;max-width:400px;background:#1b2c37;border-radius:12px}body{padding:12px}#status{margin-bottom:12px}.controls{gap:14px}
 </style>
 <div id="status" role="status" aria-live="polite">Connecting…</div>
-<div id="monitor"><div id="join"><img id="qr" alt="Scan to join the aircraft controls" width="280" height="280" hidden><p><a id="join-link"></a></p></div><h2>Computer connection monitor</h2><p>Pause, resume and reset in FlightGear. This page does not claim aircraft controls.</p></div>
+<div id="monitor"><div id="join"><img id="qr" alt="Scan to join the aircraft controls" width="280" height="280" hidden><p><a id="join-link"></a></p></div><h2>Computer connection monitor</h2><p>Pause, resume and reset in FlightGear. This page does not claim aircraft controls.</p><svg id="distribution" viewBox="0 0 200 200" aria-label="Individual pitch and roll commands"><path d="M100 0V200M0 100H200" stroke="#4b606c"/><g id="votes"></g></svg><p>Dots show individual commands; the amber ring shows the group command.</p></div>
 <div class="controls disabled" id="controls">
-<div class="flight-row"><div id="pad" role="application" aria-label="Pitch and roll touch pad"><span class="top">Nose down</span><span class="bottom">Nose up</span><span class="left">Left</span><span class="right">Right</span><span id="dot"></span></div>
-<label class="throttle-control">Throttle <output id="power">—</output><input id="throttle" aria-label="All four engines throttle" type="range" min="0" max="1" step="0.01" value="0" aria-orientation="vertical"></label></div>
+<div class="flight-row"><div id="pad" role="application" aria-label="Pitch and roll touch pad"><span class="top">Nose down</span><span class="bottom">Nose up</span><span class="left">Left</span><span class="right">Right</span><span id="group-dot" hidden></span><span id="dot"></span></div>
+<label class="throttle-control">Throttle <output id="power">—</output><span class="throttle-track"><input id="throttle" aria-label="All four engines throttle" type="range" min="0" max="1" step="0.01" value="0" aria-orientation="vertical"><span id="group-power-marker" hidden></span></span><span id="group-power">Group —</span></label></div><div class="legend">Filled dot: you · <strong>Ring: group command</strong></div>
 <div><label>Rudder / steering</label><div class="row"><button id="left">◀ Left</button><button id="right">Right ▶</button></div></div>
 <div class="row"><button id="brake">Hold to brake</button><button id="release-brakes">Release brakes</button></div>
 </div>
@@ -36,7 +38,7 @@ const pointers=new Map();
 function draw(){ $('dot').style.left=(50+values.roll*45)+'%';$('dot').style.top=(50+values.pitch*45)+'%'; }
 function release(){releasePending=false;values.roll=values.pitch=values.rudder=values.brake=0;values.throttle=null;pointers.clear();document.querySelectorAll('.held').forEach(x=>x.classList.remove('held'));draw();}
 function availability(active){enabled=active;$('controls').classList.toggle('disabled',!active);$('throttle').disabled=!active;document.querySelectorAll('button').forEach(x=>x.disabled=!active);}
-function lost(text){availability(false);challenge=null;release();$('status').textContent=text;$('status').className='';}
+function lost(text){$('group-dot').hidden=true;$('group-power-marker').hidden=true;availability(false);challenge=null;release();$('status').textContent=text;$('status').className='';}
 function padMove(e){if(!enabled||pointers.get('pad')!==e.pointerId)return;const r=$('pad').getBoundingClientRect();values.roll=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/(r.width*.45)));values.pitch=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/(r.height*.45)));draw();}
 $('pad').addEventListener('pointerdown',e=>{if(!enabled||pointers.has('pad'))return;e.preventDefault();pointers.set('pad',e.pointerId);$('pad').setPointerCapture(e.pointerId);padMove(e);});
 $('pad').addEventListener('pointermove',padMove);
@@ -60,17 +62,26 @@ async function exchange(){
   const s=await response.json();lastReply=performance.now();
   if(!s.simulator)lost('FlightGear unavailable');
   else if(!s.ready)lost('Waiting for approach readiness');
-  else if(s.busy)lost('Another phone has control');
   else{
    if(s.resync)release();
    if(!monitor){challenge=s.challenge;availability(true);}
-   $('status').textContent=s.active?'Connected · aircraft controls active':monitor?'Phone disconnected — flight continues':'Connected · ready';
+   $('status').textContent=s.active?`Flying together · ${s.count} active`:monitor?'Nobody active — flight continues':'Connected · ready';
    $('status').className=s.active?'live':'';
   }
-  if(sentReleaseVersion===releaseVersion && !s.resync && !s.busy) releasePending=false;
+  if(sentReleaseVersion===releaseVersion && !s.resync) releasePending=false;
   if(sentVersion===throttleVersion && !s.resync) values.throttle=null;
-  if(values.throttle===null && (s.resync || document.activeElement!==$('throttle'))){$('throttle').value=s.throttle;$('power').textContent=Math.round(s.throttle*100)+'%';}
-  $('feedback').textContent=s.active?`Accepted input · roll ${s.accepted.roll.toFixed(2)} · pitch ${s.accepted.pitch.toFixed(2)}`:'';
+  if(!monitor && values.throttle===null && (s.resync || document.activeElement!==$('throttle'))){$('throttle').value=s.personal_throttle;$('power').textContent=Math.round(s.personal_throttle*100)+'%';}
+  const group=s.collective;
+  $('group-dot').hidden=!s.active;
+  $('group-dot').style.left=(50+group.roll*45)+'%';$('group-dot').style.top=(50+group.pitch*45)+'%';
+  const power=group.throttle===null?s.throttle:group.throttle;
+  $('group-power').textContent='Group '+Math.round(power*100)+'%';
+  $('group-power-marker').hidden=!s.ready;$('group-power-marker').style.bottom=(power*100)+'%';
+  if(monitor){
+   $('votes').innerHTML=s.inputs.map(v=>`<circle cx="${100+v.roll*90}" cy="${100+v.pitch*90}" r="4" fill="#6ae2ba" opacity=".6"/>`).join('')+`<circle cx="${100+group.roll*90}" cy="${100+group.pitch*90}" r="8" fill="none" stroke="#ffca75" stroke-width="2"/>`;
+   $('feedback').textContent=`Group command · roll ${group.roll.toFixed(2)} · pitch ${group.pitch.toFixed(2)} · rudder ${group.rudder.toFixed(2)} · brake ${Math.round(group.brake*100)}% · throttle ${Math.round(power*100)}%`;
+  }
+
  }catch(e){lost('Disconnected — flight continues');}
  finally{clearTimeout(timeout);setTimeout(exchange,100);}
 }

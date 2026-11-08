@@ -61,3 +61,31 @@ assert(!html.includes('<h1>Flight by committee</h1>'));
 assert(!html.includes('Release to centre steering'));
 assert(html.includes('writing-mode:vertical-lr;direction:rtl'));
 console.log('Vertical throttle layout and explicit brake release passed.');
+
+// Pitch/roll remain held while the other thumb changes throttle.
+run('availability(true)');
+element('pad').listeners.pointerdown(pointer(9,190,10));
+element('throttle').value=.7;
+element('throttle').listeners.input();
+assert.equal(run('values.roll'),1);
+assert.equal(run('values.pitch'),-1);
+assert.equal(run('values.throttle'),.7);
+element('pad').listeners.pointerup(pointer(9));
+assert.equal(run('values.roll'),0);
+assert.equal(run('values.throttle'),.7);
+assert(html.includes('id="group-dot"'));
+assert(html.includes('id="group-power-marker"'));
+console.log('Simultaneous pad and throttle controls passed.');
+(async()=>{
+  run('values.throttle=null');
+  context.fetch=async()=>({ok:true,json:async()=>({simulator:true,ready:true,active:true,
+    count:2,resync:false,challenge:'fresh',personal_throttle:.7,throttle:.45,
+    collective:{roll:0,pitch:.5,rudder:0,brake:0,throttle:.5},inputs:[]})});
+  await run('exchange()');
+  assert.equal(element('throttle').value,.7);
+  assert.equal(element('group-power').textContent,'Group 50%');
+  assert.equal(element('group-dot').style.top,'72.5%');
+  assert.equal(element('status').textContent,'Flying together · 2 active');
+  assert.equal(run('enabled'),true);
+  console.log('Personal throttle and collective feedback remain distinct.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
