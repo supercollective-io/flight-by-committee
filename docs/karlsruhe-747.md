@@ -2,8 +2,8 @@
 
 The target is approximately 100 people collectively landing a Boeing 747-400 at
 Karlsruhe/Baden-Baden (EDSB). This profile uses **FlightGear Nightly, HDR and WS3**.
-The phone application is a later step. The current profile is an operator and
-simulator integration experiment.
+The profile includes [single-phone aircraft controls](phone-controls.md).
+Simulation management stays on the computer.
 
 ## Install and launch
 
@@ -41,9 +41,9 @@ the requested 3° descent. The harness records those values and checks their
 retention after resume and restoration after reset. Fuel is explicitly
 20,000 kg, distributed symmetrically. Payload uses the pinned aircraft model's
 default; the harness records total mass and checks its repeatability on reset.
-No approach autopilot is engaged. The operator owns pitch, roll, yaw, thrust,
-flare and braking. Flaps and gear begin configured for landing; audience roles
-and assistance remain open.
+No approach autopilot is engaged. The phone controls pitch, roll, yaw, thrust
+and braking; the person flying performs the flare. Flaps and gear begin
+configured for landing. Multi-person roles and assistance remain open.
 
 The aircraft's airborne engine preset does not initialise its hydraulics.
 `config/aircraft/747-400-approach.xml` initialises the four engine pumps and
@@ -155,3 +155,9 @@ remain subsequent milestones.
 - [Airport operator's runway information](https://www.baden-airpark.de/en/passengers-visitors/aviation-sector/pilot-information/)
   lists runway 03/21 and a 2,740 m landing distance. Simulator scenery remains
   the authority for this experiment's visual and positional checks.
+
+## Operator report — 8 November 2026
+
+The project owner reported one successful landing in FlightGear using this
+profile. This is a manual baseline; it does not establish phone-control validation
+or replace the recorded harness results above.

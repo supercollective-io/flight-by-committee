@@ -27,11 +27,13 @@ automated checks covering the four engines, landing configuration, descent,
 control response and repeatable reset. The profile records the initial approach
 and fuel configuration; the guide defines provisional landing-success criteria.
 
-Before building the phone connection:
-
-1. Complete the interactive visual review at the intended projection resolution, including runway alignment, terrain and stutters.
-2. Demonstrate and record a landing with one operator using the landing-review harness.
-3. Decide which controls participants own and which tasks assistance or the operator performs, including thrust, flaps, landing gear and braking. Adjust the approach if the operator trial exposes problems.
+The project owner reported a successful manual landing on 8 November 2026.
+The next slice is [one phone controlling the aircraft](phone-controls.md):
+pitch, roll, rudder, all-engine throttle and wheel brakes. Gear and flaps remain
+preset. The computer owns pause, resume and reset. Lost input releases momentary
+controls while retaining throttle and allowing flight to continue. This is the
+chosen behaviour for the single-phone slice, superseding the pause-on-expiry
+suggestion in the original control/runtime ADRs. Group fallback remains open.
 
 | Step | Build | Learn before expanding |
 | --- | --- | --- |

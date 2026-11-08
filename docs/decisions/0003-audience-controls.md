@@ -45,3 +45,12 @@ A fixed scheme would be simpler, but could commit us before we understand the in
 ## What would change this
 
 Use the [small-group rehearsal](../plan.md#compare-the-experience) to choose a production arrangement. Change the algorithm or assistance if participants cannot understand their influence, or if the flight response makes coordination unrewarding.
+
+## Single-phone implementation — 8 November 2026
+
+For the first phone-to-plane trial, use direct bounded pitch/roll controls,
+rudder, all-engine throttle and wheel brakes. Gear and flaps start configured
+for landing. There is no separate operator flying the remaining controls:
+the computer only manages the simulation. Input loss releases momentary
+controls, retains throttle and leaves flight running. Multi-person allocation,
+aggregation and assistance remain experiments for a later slice.

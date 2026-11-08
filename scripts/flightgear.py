@@ -90,13 +90,18 @@ def resolve(profile_name, *, root=None, overrides=None):
     root = ROOT if root is None else root
     overrides = overrides or {}
     profile = read(root / 'profiles' / f'{name(profile_name)}.toml')
-    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight', 'properties', 'initialisation', 'livery'),
+    keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight', 'properties', 'initialisation', 'livery', 'input'),
          ('description', 'installation', 'location', 'rendering', 'aircraft'), profile_name)
     for field in ('description', 'warning'):
         if field in profile and not isinstance(profile[field], str):
             raise ValueError(f'{field} must be a string')
     for field in ('installation', 'location', 'rendering', 'aircraft'):
         profile[field] = name(overrides.get(field) or profile[field])
+    input_config = None
+    if 'input' in profile:
+        from scripts import phone_control
+        input_name = name(profile['input'])
+        input_config = phone_control.validate(read(root / 'config/inputs' / f'{input_name}.toml'))
     if 'livery' in profile:
         build_livery.livery_directory(root, profile['aircraft'], profile['livery'])
     install = installation(profile['installation'], root, overrides.get('binary'), overrides.get('fg_root'))
@@ -201,7 +206,8 @@ def resolve(profile_name, *, root=None, overrides=None):
             raise ValueError(f'{path}: initial properties require finite numbers or booleans')
         command.append(f'--prop:{path}={value}')
     return {'profile_name': profile_name, 'profile': profile, 'installation': install,
-            'location': location, 'command': command, 'livery_overlay': livery_overlay}
+            'location': location, 'command': command, 'livery_overlay': livery_overlay,
+            'input_config': input_config}
 
 
 def validate_assets(resolved):
@@ -277,11 +283,27 @@ def run(resolved, root=None):
     directory.mkdir(parents=True, exist_ok=False)
     # Per-run homes also prevent simultaneous flights sharing mutable state.
     state = directory / 'state' / resolved['profile']['installation']
-    record = dict(resolved, fg_home=str(state), started_at=stamp)
+    command = list(resolved['command'])
+    input_config = resolved.get('input_config')
+    if input_config:
+        import socket
+        from scripts import phone_control
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', 0))
+            control_port = probe.getsockname()[1]
+        watchdog = directory / 'phone-watchdog.xml'
+        phone_control.watchdog_xml(input_config, watchdog)
+        command.extend([f'--telnet=socket,bi,100,127.0.0.1,{control_port},tcp',
+                        f'--config={watchdog.resolve()}'])
+    record = dict(resolved, command=command, fg_home=str(state), started_at=stamp)
     (directory / 'launch.json').write_text(json.dumps(record, indent=2) + '\n')
     print(f"Starting {resolved['profile_name']}. Log: {directory / 'simulator.log'}", flush=True)
     with (directory / 'simulator.log').open('w') as log:
-        with simulator(resolved['command'], state, log) as process:
+        from contextlib import ExitStack
+        with ExitStack() as stack:
+            if input_config:
+                stack.enter_context(phone_control.running(input_config, control_port))
+            process = stack.enter_context(simulator(command, state, log))
             status = process.wait()
     return status if status >= 0 else 128 - status
 

@@ -34,3 +34,15 @@ For scale intuition only: 500 phones sending 200-byte messages at 10 Hz produce 
 ## What would change this
 
 Reconsider topology if local HTTPS, venue access or actual joining proves impractical. Select the final deployment from venue evidence. Avoid automatic local/cloud failover until there is a demonstrated need and a clear single-authority handover.
+
+## Single-phone implementation — 8 November 2026
+
+The first slice uses one local Python service and short HTTP exchanges rather
+than adding a WebSocket dependency. Only one request is in flight per phone;
+single-use server challenges expire after 500 ms. Input expiry is one second.
+The profile selects its input definition. The computer manages the simulation;
+the phone exposes aircraft controls only. At the project owner's direction,
+expired input releases momentary controls and preserves throttle, without
+pausing. A simulator-side watchdog applies the same fallback if the service
+stops. Local HTTP with a per-run join key is for trusted-network trials; venue
+HTTPS and group aggregation remain future work. See [phone controls](../phone-controls.md).
