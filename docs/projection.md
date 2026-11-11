@@ -1,8 +1,8 @@
 # Projection
 
-The minimal setup uses two FlightGear camera windows and one browser overlay.
-The main audience output is composed in OBS; the external view goes directly on
-another screen. Keep the existing browser monitor on the operator screen.
+Start with one FlightGear camera window and one browser overlay composed in
+OBS. Add the optional external view only after checking performance on the actual
+equipment. The external view can go directly on another screen. Keep the existing browser monitor on the operator screen.
 
 ## Start the flight
 

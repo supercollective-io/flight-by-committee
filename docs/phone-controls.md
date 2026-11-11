@@ -36,7 +36,9 @@ computer. The phone has no simulation-management actions.
 Gear and flaps are preset by the approach. The input adapter leaves trim alone.
 Disable mouse flight control and disconnect joysticks so they do not compete
 with the phone. There is no autopilot or stabilisation added by the phone input.
-Everyone joining the same QR code controls the aircraft together. Each active
+Opening the link observes; tap **Join flight controls** to begin contributing.
+Use **Observe without voting** to leave the average. Everyone who joins the
+controls through the same invitation controls the aircraft together. Each active
 session contributes one equally weighted input, averaged separately for pitch,
 roll, rudder, wheel brakes and throttle. Centred input counts; expired input does
 not. More messages do not give a participant more influence. One phone is the
@@ -94,7 +96,10 @@ flight trial and are deliberately easy to adjust.
 
 ## Scope and implementation
 
-This is a local, trusted-network prototype. Assets are served locally; QR generation uses the optional local
+The default launcher retains the local, trusted-network route. For the hosted
+HTTPS/WebSocket route, outbound bridge, override and deployment procedure, see
+[Hosted Flight controls](relay-operations.md). The remainder of this section
+describes LAN transport. Assets are served locally; QR generation uses the optional local
 `qrencode` executable. The join URL contains a new random access key each run;
 anyone with it can join. HTTP is unencrypted, so do not expose this service to
 the internet. FlightGear's command socket binds only to `127.0.0.1` on a temporary

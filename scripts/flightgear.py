@@ -335,7 +335,12 @@ def run(resolved, root=None):
         from contextlib import ExitStack
         with ExitStack() as stack:
             if input_config:
-                phone_state = stack.enter_context(phone_control.running(input_config, control_port))
+                if os.environ.get('FLIGHT_RELAY_URL'):
+                    from scripts import relay_bridge
+                    controller = relay_bridge
+                else:
+                    controller = phone_control
+                phone_state = stack.enter_context(controller.running(input_config, control_port))
                 if resolved.get('projection'):
                     from scripts.projection import open_projection
                     open_projection(phone_state.projection_url)

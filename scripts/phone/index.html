@@ -11,19 +11,21 @@
 #group-dot[hidden]{display:none}.throttle-control{position:relative}.throttle-track{position:relative;width:48px;min-height:0;align-self:stretch}#group-power-marker{position:absolute;right:0;width:12px;height:3px;background:#ffca75;pointer-events:none}#group-power{color:#ffca75;font-size:13px;white-space:nowrap}#release-brakes{flex:0 1 110px;font-size:14px;min-height:48px}#brake{flex:1}.legend{font-size:12px;color:#aebdc5;margin-top:6px}.legend strong{color:#ffca75;font-weight:400}#distribution{width:100%;height:auto;max-width:400px;background:#1b2c37;border-radius:12px}body{padding:12px}#status{margin-bottom:12px}.controls{gap:14px}
 </style>
 <div id="status" role="status" aria-live="polite">Connecting…</div>
-<div id="monitor"><div id="join"><img id="qr" alt="Scan to join the aircraft controls" width="280" height="280" hidden><p><a id="join-link"></a></p></div><h2>Computer connection monitor</h2><p>Pause, resume and reset in FlightGear. This page does not claim aircraft controls.</p><svg id="distribution" viewBox="0 0 200 200" aria-label="Individual pitch and roll commands"><path d="M100 0V200M0 100H200" stroke="#4b606c"/><g id="votes"></g></svg><p>Dots show individual commands; the amber ring shows the group command.</p></div>
+<div id="role-choice"><button id="join-controls">Join flight controls</button><button id="observe" hidden>Observe without voting</button></div>
+<div id="monitor"><div id="join"><img id="qr" alt="Scan to join the aircraft controls" width="280" height="280" hidden><p><a id="join-link"></a></p></div><h2>Computer connection monitor</h2><button id="override" hidden>Take local control</button><p>Pause, resume and reset in FlightGear. This page does not claim aircraft controls.</p><svg id="distribution" viewBox="0 0 200 200" aria-label="Individual pitch and roll commands"><path d="M100 0V200M0 100H200" stroke="#4b606c"/><g id="votes"></g></svg><p>Dots show individual commands; the amber ring shows the group command.</p></div>
 <div class="controls disabled" id="controls">
 <div class="flight-row"><div id="pad" role="application" aria-label="Pitch and roll touch pad"><span class="top">Nose down</span><span class="bottom">Nose up</span><span class="left">Left</span><span class="right">Right</span><span id="group-dot" hidden></span><span id="dot"></span></div>
 <label class="throttle-control">Throttle <output id="power">—</output><span class="throttle-track"><input id="throttle" aria-label="All four engines throttle" type="range" min="0" max="1" step="0.01" value="0" aria-orientation="vertical"><span id="group-power-marker" hidden></span></span><span id="group-power">Group —</span></label></div><div class="legend">Filled dot: you · <strong>Ring: group command</strong></div>
 <div><label>Rudder / steering</label><div class="row"><button id="left">◀ Left</button><button id="right">Right ▶</button></div></div>
 <div class="row"><button id="brake">Hold to brake</button><button id="release-brakes">Release brakes</button></div>
 </div>
-<p id="feedback"></p>
+<p id="feedback"></p><p>After joining, centred input counts in the average. Select “Observe without voting” to leave the average.</p><p><a href="https://we.supercollective.io">Return to Rehearsing We</a></p>
 <script>
 'use strict';
 const $=id=>document.getElementById(id), params=new URLSearchParams(location.search), key=params.get('key');
 const monitor=params.has('monitor');
 if(monitor){
+ $('role-choice').hidden=true;
  $('controls').hidden=true;$('monitor').style.display='block';
  fetch('/join?key='+encodeURIComponent(key)).then(r=>r.json()).then(join=>{
   if(join.url){$('join-link').href=join.url;$('join-link').textContent=join.url;}
@@ -32,12 +34,20 @@ if(monitor){
 }
 let session=sessionStorage.getItem('flight-session');
 if(!session){session=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');sessionStorage.setItem('flight-session',session);}
+let localOverride=false;
+$('override').addEventListener('click',async()=>{
+ try{const r=await fetch('/override?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!localOverride})});if(!r.ok)throw Error();}
+ catch{$('status').textContent='Override failed — check the local operator connection';}
+});
+let joined=false,roleVersion=0;
+$('join-controls').addEventListener('click',()=>{roleVersion++;joined=true;challenge=null;release();$('join-controls').hidden=true;$('observe').hidden=false;});
+$('observe').addEventListener('click',()=>{roleVersion++;joined=false;lost('Observing — your controls are released');$('join-controls').hidden=false;$('observe').hidden=true;if(!window.flightRequest)fetch('/leave?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session})}).catch(()=>{});});
 let challenge=null, enabled=false, lastReply=0, throttleVersion=0, releaseVersion=0, releasePending=false;
 const values={roll:0,pitch:0,rudder:0,brake:0,throttle:null};
 const pointers=new Map();
 function draw(){ $('dot').style.left=(50+values.roll*45)+'%';$('dot').style.top=(50+values.pitch*45)+'%'; }
 function release(){releasePending=false;values.roll=values.pitch=values.rudder=values.brake=0;values.throttle=null;pointers.clear();document.querySelectorAll('.held').forEach(x=>x.classList.remove('held'));draw();}
-function availability(active){enabled=active;$('controls').classList.toggle('disabled',!active);$('throttle').disabled=!active;document.querySelectorAll('button').forEach(x=>x.disabled=!active);}
+function availability(active){enabled=active;$('controls').classList.toggle('disabled',!active);$('throttle').disabled=!active;document.querySelectorAll('button:not(#override):not(#join-controls):not(#observe)').forEach(x=>x.disabled=!active);}
 function lost(text){$('group-dot').hidden=true;$('group-power-marker').hidden=true;availability(false);challenge=null;release();$('status').textContent=text;$('status').className='';}
 function padMove(e){if(!enabled||pointers.get('pad')!==e.pointerId)return;const r=$('pad').getBoundingClientRect();values.roll=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/(r.width*.45)));values.pitch=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/(r.height*.45)));draw();}
 $('pad').addEventListener('pointerdown',e=>{if(!enabled||pointers.has('pad'))return;e.preventDefault();pointers.set('pad',e.pointerId);$('pad').setPointerCapture(e.pointerId);padMove(e);});
@@ -55,22 +65,26 @@ setInterval(()=>{if(performance.now()-lastReply>1000)lost('Disconnected — flig
 async function exchange(){
  if(document.hidden){setTimeout(exchange,100);return;}
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),700);
+ const observing=monitor||!joined,sentRole=roleVersion;
  const sentVersion=throttleVersion, sentReleaseVersion=releaseVersion;
  try{
-  const response=await fetch((monitor?'/status':'/input')+'?key='+encodeURIComponent(key),monitor?{signal:controller.signal}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session,challenge,release_brakes:releasePending,controls:challenge?{...values}:null}),signal:controller.signal});
+  const response=await (window.flightRequest||fetch)((observing?'/status':'/input')+'?key='+encodeURIComponent(key),observing?{signal:controller.signal}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session,challenge,release_brakes:releasePending,controls:challenge?{...values}:null}),signal:controller.signal});
   if(!response.ok)throw Error('Connection refused');
-  const s=await response.json();lastReply=performance.now();
-  if(!s.simulator)lost('FlightGear unavailable');
+  const s=await response.json();if(sentRole!==roleVersion)return;lastReply=performance.now();
+  if(monitor){$('override').hidden=!s.local_operator;localOverride=!!s.override;$('override').textContent=localOverride?'Return to crowd control':'Take local control';}
+  if(s.override)lost('Operator intervention · local control enabled');
+  else if(s.relay===false)lost('Relay unavailable — flight continues');
+  else if(!s.simulator)lost('FlightGear unavailable');
   else if(!s.ready)lost('Waiting for approach readiness');
   else{
    if(s.resync)release();
-   if(!monitor){challenge=s.challenge;availability(true);}
-   $('status').textContent=s.active?`Flying together · ${s.count} active`:monitor?'Nobody active — flight continues':'Connected · ready';
+   if(!observing){challenge=s.challenge;availability(true);}else availability(false);
+   $('status').textContent=s.active?`${observing?'Watching':'Flying together'} · ${s.count} active`:observing?'Observing · nobody active — flight continues':'Connected · ready';
    $('status').className=s.active?'live':'';
   }
   if(sentReleaseVersion===releaseVersion && !s.resync) releasePending=false;
   if(sentVersion===throttleVersion && !s.resync) values.throttle=null;
-  if(!monitor && values.throttle===null && (s.resync || document.activeElement!==$('throttle'))){$('throttle').value=s.personal_throttle;$('power').textContent=Math.round(s.personal_throttle*100)+'%';}
+  if(!observing && values.throttle===null && (s.resync || document.activeElement!==$('throttle'))){$('throttle').value=s.personal_throttle;$('power').textContent=Math.round(s.personal_throttle*100)+'%';}
   const group=s.collective;
   $('group-dot').hidden=!s.active;
   $('group-dot').style.left=(50+group.roll*45)+'%';$('group-dot').style.top=(50+group.pitch*45)+'%';
