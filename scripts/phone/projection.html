@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Collective · Projection</title>
+<style>
+:root{font:18px system-ui;color:#eef4f5;background:transparent}*{box-sizing:border-box}body{margin:0;background:transparent}aside{position:absolute;right:2vw;bottom:3vh;width:300px;padding:18px;border:1px solid #ffffff30;border-radius:16px;background:#101820e8}header{display:flex;justify-content:space-between;align-items:center;font-size:18px}h1{margin:0;font-size:18px;font-weight:600}#status{font-size:14px;color:#aebdc5;margin:8px 0 12px}svg{display:block;width:100%;height:auto}#data[hidden]{display:none}.label{display:flex;justify-content:space-between;margin:12px 0 5px;font-size:15px}.track{height:7px;background:#ffffff20;border-radius:4px;overflow:hidden}.fill{height:100%;background:#ffca75;width:0}output{font-variant-numeric:tabular-nums;color:#ffca75}
+</style>
+<aside><header><h1>Collective input</h1><span id="count">—</span></header><p id="status" role="status">Connecting…</p>
+<div id="data" hidden><svg viewBox="0 0 240 200" aria-label="Pitch and roll commands; dots are participants and ring is the collective">
+<path d="M120 25V175M30 100H210" stroke="#ffffff30"/><g fill="#aebdc5" font-size="11" text-anchor="middle"><text x="120" y="14">NOSE DOWN</text><text x="120" y="195">NOSE UP</text><text x="14" y="104">L</text><text x="226" y="104">R</text></g><g id="votes"></g></svg>
+<div class="label">Throttle <output id="throttle-value"></output></div><div class="track"><div id="throttle" class="fill"></div></div>
+<div class="label">Rudder <output id="rudder"></output></div>
+<div class="label">Brakes <output id="brake-value"></output></div><div class="track"><div id="brake" class="fill"></div></div>
+</div></aside>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),key=new URLSearchParams(location.search).get('key');
+let lastReply=null, problem=null, retryDelay=100, pollingStopped=false;
+function fail(message){problem=message;lost(message);}
+function lost(message){$('data').hidden=true;$('votes').innerHTML='';$('count').textContent='—';$('status').hidden=false;$('status').textContent=message;}
+function render(s){
+ if(!s.simulator)return lost('FlightGear unavailable');
+ if(!s.ready)return lost('Waiting for approach readiness');
+ $('count').textContent=String(s.count);
+ $('status').hidden=s.active;
+ $('status').textContent=s.active?'':'Nobody active · flight continues';
+ $('data').hidden=!s.active;
+ if(!s.active){$('votes').innerHTML='';return;}
+ const g=s.collective;
+ $('votes').innerHTML=s.inputs.map(v=>`<circle cx="${120+v.roll*85}" cy="${100+v.pitch*70}" r="3" fill="#6ae2ba" opacity=".5"/>`).join('')+`<circle cx="${120+g.roll*85}" cy="${100+g.pitch*70}" r="8" fill="none" stroke="#ffca75" stroke-width="3"/>`;
+ for(const axis of ['throttle','brake']){const percent=Math.round((g[axis]??s.throttle)*100);$(axis).style.width=percent+'%';$(axis+'-value').textContent=percent+'%';}
+ $('rudder').textContent=Math.abs(g.rudder)<.005?'Centred':`${g.rudder<0?'Left':'Right'} ${Math.round(Math.abs(g.rudder)*100)}%`;
+}
+async function exchange(){
+ if(pollingStopped)return;
+ if(!key){fail('Missing access key · use this flight’s overlay URL');return;}
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
+ try{
+  let r;
+  try{r=await fetch('/status?key='+encodeURIComponent(key),{signal:controller.signal,cache:'no-store'});}
+  catch(e){fail(e.name==='AbortError'?'Status request timed out · retrying':'Cannot reach control server · check launcher and browser local-network access');return;}
+  if(r.status===404){pollingStopped=true;fail('Wrong server · restart flight launcher, then reload this page');return;}
+  if(!r.ok){fail(r.status===403?'Link expired or invalid · use this flight’s overlay URL':`Status request failed · HTTP ${r.status}`);return;}
+  let s;
+  try{s=await r.json();}
+  catch{fail('Invalid status response · expected JSON');return;}
+  try{render(s);}
+  catch(e){console.error('Projection render failed:',e);fail('Overlay display error · '+e.message);return;}
+  lastReply=performance.now();problem=null;
+ }finally{clearTimeout(timer);retryDelay=problem?Math.min(retryDelay*2,5000):100;if(!pollingStopped)setTimeout(exchange,retryDelay);}
+}
+setInterval(()=>{if(!problem && lastReply!==null && performance.now()-lastReply>1500)lost('Status updates delayed · controls hidden');},200);
+exchange();
+</script>
+</html>

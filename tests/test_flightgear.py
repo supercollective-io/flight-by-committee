@@ -203,3 +203,75 @@ class AircraftInstallerTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'already exists'):
                     install_747.install(destination)
                 download.assert_not_called()
+
+class ProjectionLaunchRegressionTests(unittest.TestCase):
+    def test_projection_does_not_pass_removed_nightly_option(self):
+        with patch.object(fg, 'run', return_value=0) as run, contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(fg.main(['run', 'karlsruhe-747-landing', '--projection']), 0)
+        resolved = run.call_args.args[0]
+        self.assertTrue(resolved['projection'])
+        self.assertNotIn('--enable-composite-viewer', resolved['command'])
+
+    def test_simulator_diagnostics_reach_terminal_and_log(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(fg.sys, 'platform', 'linux'):
+            output = io.StringIO()
+            path = Path(directory) / 'simulator.log'
+            with path.open('w') as log, contextlib.redirect_stderr(output):
+                with fg.simulator([sys.executable, '-c',
+                                   'import sys; print("startup failed", file=sys.stderr); sys.exit(2)'],
+                                  Path(directory) / 'state', log, echo=True) as process:
+                    self.assertEqual(process.wait(timeout=5), 2)
+            self.assertIn('FlightGear: startup failed', output.getvalue())
+            self.assertIn('startup failed', path.read_text())
+
+    def test_silent_failure_is_reported_with_popup_guidance(self):
+        resolved = fg.resolve('schiphol-inspect')
+        resolved['command'] = [sys.executable, '-c', 'import sys; sys.exit(2)']
+        resolved['installation'].pop('scenery', None)
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(fg, 'validate_assets'), patch.object(fg.build_livery, 'prepare'), \
+                patch.object(fg.sys, 'platform', 'linux'), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()) as output:
+            self.assertEqual(fg.run(resolved, Path(directory)), 2)
+        self.assertIn('FlightGear exited with status 2', output.getvalue())
+        self.assertIn('no console diagnostics', output.getvalue())
+        self.assertIn('error popup', output.getvalue())
+
+    def test_phone_launch_keeps_flightgear_http_on_a_separate_port(self):
+        from scripts import phone_control
+        from unittest.mock import MagicMock
+        resolved = fg.resolve('karlsruhe-747-landing')
+        resolved['installation'].pop('scenery', None)
+        process = Mock()
+        process.wait.return_value = 0
+        simulator_context = MagicMock()
+        simulator_context.__enter__.return_value = process
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(fg, 'validate_assets'), patch.object(fg.build_livery, 'prepare'), \
+                patch.object(phone_control, 'running', return_value=MagicMock()), \
+                patch('socket.socket') as socket_factory, \
+                patch.object(fg, 'simulator', return_value=simulator_context) as simulator, \
+                contextlib.redirect_stdout(io.StringIO()):
+            socket_factory.return_value.__enter__.return_value.getsockname.return_value = ('127.0.0.1', 12345)
+            self.assertEqual(fg.run(resolved, Path(directory)), 0)
+        command = simulator.call_args.args[0]
+        self.assertIn('--httpd=127.0.0.1:8080', command)
+        self.assertNotIn('--disable-httpd', command)
+        self.assertEqual(resolved['input_config']['port'], 8081)
+        self.assertTrue(any(arg.startswith('--telnet=') for arg in command))
+
+    def test_routine_simulator_output_stays_in_log(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(fg.sys, 'platform', 'linux'):
+            output = io.StringIO()
+            path = Path(directory) / 'simulator.log'
+            with path.open('w') as log, contextlib.redirect_stderr(output):
+                with fg.simulator([sys.executable, '-c',
+                                   'print("[WARN]: weather notice"); print("[ALRT]: particles disabled"); print("[ERROR]: genuine fault")'],
+                                  Path(directory) / 'state', log, echo=True) as process:
+                    self.assertEqual(process.wait(timeout=5), 0)
+            self.assertNotIn('weather notice', output.getvalue())
+            self.assertNotIn('particles disabled', output.getvalue())
+            self.assertIn('genuine fault', output.getvalue())
+            self.assertIn('weather notice', path.read_text())
+            self.assertIn('particles disabled', path.read_text())

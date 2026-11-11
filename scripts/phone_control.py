@@ -366,10 +366,12 @@ def handler_for(state, secret):
 
         def do_GET(self):
             if not self.authorised():
-                return self.reply(403, {'error': 'Use the join URL printed on the computer.'})
+                return self.reply(403, {'error': 'This link is missing a key or belongs to an earlier flight. Use the complete URL printed by the current launcher.'})
             path = urlsplit(self.path).path
             if path == '/':
                 return self.reply(200, (Path(__file__).parent / 'phone/index.html').read_bytes(), 'text/html; charset=utf-8')
+            if path == '/projection':
+                return self.reply(200, (Path(__file__).parent / 'phone/projection.html').read_bytes(), 'text/html; charset=utf-8')
             if path == '/join':
                 return self.reply(200, dict(url=state.join_url, qr=state.qr_svg is not None))
             if path == '/qr.svg' and state.qr_svg is not None:
@@ -401,7 +403,10 @@ def handler_for(state, secret):
 
 
 def make_server(state, secret, port):
-    server = ThreadingHTTPServer(('0.0.0.0', port), handler_for(state, secret))
+    try:
+        server = ThreadingHTTPServer(('0.0.0.0', port), handler_for(state, secret))
+    except OSError as exc:
+        raise ValueError(f'Cannot start phone/overlay HTTP server on port {port}: {exc}') from exc
     server.daemon_threads = True
     return server
 
@@ -430,6 +435,8 @@ def running(config, simulator_port):
     else:
         print('No LAN address detected. Connect the computer to Wi-Fi and relaunch.', flush=True)
     print(f'Computer only — status and QR code:\n  http://127.0.0.1:{server.server_port}/?key={secret}&monitor=1', flush=True)
+    state.projection_url = f'http://127.0.0.1:{server.server_port}/projection?key={secret}'
+    print(f'OBS browser overlay (this computer only):\n  {state.projection_url}', flush=True)
     print('Pause/reset remain in FlightGear.', flush=True)
     for thread in threads:
         thread.start()

@@ -132,3 +132,5 @@ Automated checks cover profile validation, freshness, equal weighting, independe
 invalidation, HTTP routes and browser touch lifecycles. A real phone/network
 and live FlightGear trial is still required; this is not validation for a room
 of participants.
+
+For an audience overlay and a second camera window, see [Projection](projection.md).
