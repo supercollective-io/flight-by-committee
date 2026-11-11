@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Livery studio</title>
@@ -7,19 +7,19 @@
   <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
 </head>
 <body>
-  <header><h1><a class="brand" href="/">livery studio</a></h1><button id="export" disabled>Save image <span>↗</span></button></header>
+  <header><h1><a class="brand" href="/">Livery studio</a></h1><button id="export" disabled>Save image</button></header>
   <main>
     <section class="workspace" aria-label="Aircraft preview">
       <nav class="views" aria-label="Camera views">
         <button data-view="perspective" class="active" aria-pressed="true">Orbit</button><button data-view="quarter-front-right" aria-pressed="false">Front right ¾</button><button data-view="quarter-rear-left" aria-pressed="false">Rear left ¾</button><button data-view="quarter-rear-right" aria-pressed="false">Rear right ¾</button><button data-view="port" aria-pressed="false">Left</button><button data-view="starboard" aria-pressed="false">Right</button><button data-view="front" aria-pressed="false">Front</button><button data-view="rear" aria-pressed="false">Rear</button><button data-view="top" aria-pressed="false">Above</button><button data-view="bottom" aria-pressed="false">Below</button><button data-view="both" aria-pressed="false">Both sides</button>
       </nav>
-      <div id="viewport"><div id="loading">Assembling the aircraft<span>Actual FlightGear geometry and texture mapping</span></div><div class="view-label" id="view-label">THREE-QUARTER VIEW</div><div id="split-label" hidden>STARBOARD / RIGHT</div><div id="compare-label" hidden>PINNED DESIGN</div></div>
+      <div id="viewport"><div id="loading">Loading aircraft…</div><div class="view-label" id="view-label">THREE-QUARTER VIEW</div><div id="split-label" hidden>STARBOARD / RIGHT</div><div id="compare-label" hidden>PINNED DESIGN</div></div>
       <footer class="canvas-footer"><span id="interaction">Drag to orbit · scroll to zoom · right-drag to pan</span><button id="reset">Reset view</button></footer>
     </section>
     <aside>
-      <section><span class="eyebrow">01 / LIVE SOURCE</span><div class="status"><i id="status-dot"></i><span id="status" role="status">Loading aircraft…</span></div><label for="design">Design</label><select id="design" disabled></select><p id="design-description"></p><a id="source" class="file-link" href="/source/supercollective.svg" target="_blank">supercollective.svg <span>↗</span></a><p class="file-location">assets/liveries/747-400/</p><div id="error" role="alert" hidden></div><div class="build-meta"><span id="build-time">Waiting for first build</span></div></section>
-      <section><span class="eyebrow">02 / LOOK & COMPARE</span><div class="control"><label for="light">Lighting</label><select id="light"><option value="studio">Studio</option><option value="daylight">Daylight</option><option value="dusk">Dusk</option></select></div><div class="control"><label for="gear">Landing gear</label><input id="gear" type="checkbox" checked></div><div class="control"><label for="wireframe">Mesh wireframe</label><input id="wireframe" type="checkbox"></div><button class="full" id="pin" disabled>Pin this design</button><div id="comparison" hidden><div class="segmented"><button id="live" class="active" aria-pressed="true">Live</button><button id="pinned" aria-pressed="false">Pinned</button></div><p>Same model. Same view. Compare your next edit against this version.</p></div></section>
-      <section><span class="eyebrow">03 / TEXTURE MAP</span><a id="texture-link" href="/texture.png" target="_blank" title="Open full-size texture"><img id="texture-map" alt="Current aircraft livery texture map"></a><p>8192 × 2048 pixels · SVG → PNG</p></section>
+      <section><h2>Design</h2><div class="status"><i id="status-dot"></i><span id="status" role="status">Loading aircraft…</span></div><label for="design">Design</label><select id="design" disabled></select><a id="source" class="file-link" href="/source/supercollective.svg" target="_blank">supercollective.svg <span>↗</span></a><p class="file-location">assets/liveries/747-400/</p><div id="error" role="alert" hidden></div><div class="build-meta"><span id="build-time">Waiting for first build</span></div></section>
+      <section><h2>View and compare</h2><div class="control"><label for="light">Lighting</label><select id="light"><option value="studio">Studio</option><option value="daylight">Daylight</option><option value="dusk">Dusk</option></select></div><div class="control"><label for="gear">Landing gear</label><input id="gear" type="checkbox" checked></div><div class="control"><label for="wireframe">Mesh wireframe</label><input id="wireframe" type="checkbox"></div><button class="full" id="pin" disabled>Pin this design</button><div id="comparison" hidden><div class="segmented"><button id="live" class="active" aria-pressed="true">Live</button><button id="pinned" aria-pressed="false">Pinned</button></div><p>Compare the current design with the pinned version.</p></div></section>
+      <section><h2>Texture map</h2><a id="texture-link" href="/texture.png" target="_blank" title="Open full-size texture"><img id="texture-map" alt="Current aircraft livery texture map"></a><p>8192 × 2048 pixels · SVG → PNG</p></section>
     </aside>
   </main>
   <script type="module" src="/studio.js"></script>

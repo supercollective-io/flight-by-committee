@@ -71,7 +71,6 @@ async function refresh(state){
     $('texture-map').src=textureURL(currentName,currentRevision);$('texture-link').href=textureURL(currentName,currentRevision);$('build-time').textContent=`Built in ${state.build_ms} ms`;
   }
   $('source').textContent=state.name+'.svg ↗';$('source').href='/source/'+state.name+'.svg';
-  $('design-description').textContent=catalogue.find(d=>d.name===state.name)?.description||'';
   $('pin').disabled=!state.revision;
 }
 async function poll(){try{const response=await fetch('/state?livery='+encodeURIComponent(selectedName));if(!response.ok)throw new Error('Server unavailable');await refresh(await response.json());}catch(e){$('status').textContent='Preview disconnected';$('status-dot').className='bad';$('error').hidden=false;$('error').textContent='Start the preview server again to reconnect. '+e.message;}finally{setTimeout(poll,650);}}
