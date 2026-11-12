@@ -2,7 +2,7 @@
 
 Approximately 100 people use a phone web app to collectively land a simulated Boeing 747-400 on a shared projection. The aircraft must visibly have four engines, the distinctive upper-deck hump and upturned wingtips. The destination is the airport nearest Karlsruhe, interpreted as Karlsruhe/Baden-Baden (FKB/EDSB). See the [implementation plan](plan.md) for the target scenario and next steps.
 
-The project prefers open source. The venue, simulator and final control arrangement remain open. The target audience is approximately 100 people. The terminal simulator harness is an initial implementation experiment. The audience application is not implemented, and the simulator has passed the initial automated feasibility checks; visual quality and rehearsal suitability remain unverified.
+The project prefers open source. The venue, simulator and final control arrangement remain open. The target audience is approximately 100 people. The terminal simulator harness is an initial implementation experiment. The audience interface and hosted relay are implemented and publicly deployed at [fly.supercollective.io](https://fly.supercollective.io); public interface and health checks passed on 12 November 2026. See [hosted operations](relay-operations.md) for the scope and remaining checks. The simulator has passed initial automated feasibility checks; visual quality and rehearsal suitability remain unverified.
 
 ## Start here
 
