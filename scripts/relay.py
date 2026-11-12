@@ -9,6 +9,7 @@ import secrets
 import time
 
 from aiohttp import web, WSMsgType
+from scripts.runtime_origin import runtime_origin
 from scripts.controls import State, bounded_controls, generation_valid
 
 HERE = Path(__file__).parent
@@ -163,9 +164,31 @@ class Relay:
         return app
 
 
+def configuration(env):
+    keys = []
+    for name in ('FLIGHT_PARTICIPANT_KEY', 'FLIGHT_BRIDGE_KEY'):
+        value = env.get(name, '')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{24,128}', value):
+            raise ValueError(f'Set {name} to a persistent, independently generated URL-safe key of 24–128 characters in the runtime environment')
+        keys.append(value)
+    if keys[0] == keys[1]:
+        raise ValueError('FLIGHT_PARTICIPANT_KEY and FLIGHT_BRIDGE_KEY must be different')
+    try:
+        port = int(env.get('PORT', '8080'))
+        if not 1 <= port <= 65535:
+            raise ValueError()
+    except ValueError:
+        raise ValueError('PORT must be an integer from 1 to 65535') from None
+    return keys[0], keys[1], runtime_origin(env), port
+
+
 def main():
-    relay = Relay(os.environ['FLIGHT_PARTICIPANT_KEY'], os.environ['FLIGHT_BRIDGE_KEY'], os.environ.get('FLIGHT_PUBLIC_ORIGIN', 'https://flight.supercollective.io'))
-    web.run_app(relay.app(), host='0.0.0.0', port=int(os.environ.get('PORT', '8080')), access_log=None)
+    try:
+        participant, bridge, origin, port = configuration(os.environ)
+        relay = Relay(participant, bridge, origin)
+    except ValueError as error:
+        raise SystemExit(f'Flight configuration error: {error}') from None
+    web.run_app(relay.app(), host='0.0.0.0', port=port, access_log=None)
 
 
 if __name__ == '__main__':

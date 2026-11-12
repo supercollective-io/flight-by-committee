@@ -58,12 +58,23 @@ Set these runtime variables, unavailable during builds:
 
 | Variable | Value |
 | --- | --- |
-| `FLIGHT_PUBLIC_ORIGIN` | `https://flight.supercollective.io` (exact origin, no trailing slash) |
+| `FLIGHT_PUBLIC_ORIGIN` | Optional canonical origin override; otherwise derived from `COOLIFY_URL` |
 | `FLIGHT_PARTICIPANT_KEY` | Independent random URL-safe key, 24–128 characters |
 | `FLIGHT_BRIDGE_KEY` | A different random URL-safe key, 24–128 characters; operator secret |
 | `PORT` | `8080` |
 
-Generate each key separately with `python -c 'import secrets; print(secrets.token_urlsafe(32))'`.
+Generate each key separately on your own machine with
+`python3 -c 'import secrets; print(secrets.token_urlsafe(32))'`.
+Save both values in your password manager, then add them under the application's
+**Environment Variables** in Coolify. Set **Available in the container** and
+**Not available during build**, and lock the values after saving. Restart the
+application to apply them. Preserve the values across ordinary redeployments;
+do not generate credentials in the Dockerfile or on every startup. Dockerfile
+applications do not automatically generate Compose-style service secrets.
+
+A missing, blank, malformed or duplicated key stops startup with a configuration
+error naming the affected setting without printing its value. Both keys are
+required before the health endpoint can become ready.
 The audience joins `https://flight.supercollective.io/?key=PARTICIPANT_KEY`.
 The bridge uses a Bearer header; its key never appears in audience HTML or URLs.
 Keep query strings out of proxy access logs because participant invitations
@@ -194,3 +205,12 @@ backup remains at `/private/tmp/tools-migration-20261111/flight-by-committee`
 (history bundle, source snapshot and patches). Only required phone/projection
 source was adopted; no local simulator assets, reports or machine settings were
 added to Git. No remote branch was published.
+
+### Automatic Coolify origin
+
+Enable Coolify default variables and configure the public HTTPS domain. The relay
+uses `COOLIFY_URL` when `FLIGHT_PUBLIC_ORIGIN` is absent. A domain plus its `www`
+alias selects the non-`www` origin regardless of order; configure the alias to
+redirect there. Unrelated domains, missing settings and malformed values stop
+startup. An explicit `FLIGHT_PUBLIC_ORIGIN` takes precedence. Outside Coolify,
+supply that explicit origin. No request header determines the trusted origin.
