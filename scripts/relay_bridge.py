@@ -2,7 +2,6 @@
 import asyncio
 from contextlib import contextmanager
 import math
-import json
 import os
 import secrets
 import threading
@@ -25,7 +24,6 @@ class RemoteState(phone.State):
         self.sequence = 0
         self.release_token = None
         self.relay_connected = False
-        self.override = False
 
     def invalidate(self):
         super().invalidate()
@@ -35,7 +33,7 @@ class RemoteState(phone.State):
         self.sequence = 0
 
     def fresh(self):
-        return (self.ready and not self.override and self.relay_connected and self.frame is not None
+        return (self.ready and self.relay_connected and self.frame is not None
                 and self.frame['active'] and self.clock() - self.received < .5)
 
     @property
@@ -52,7 +50,6 @@ class RemoteState(phone.State):
     def status(self):
         fresh = self.fresh()
         return dict(simulator=self.connected, ready=self.ready, relay=self.relay_connected and self.clock() - self.received < .5,
-                    local_operator=True, override=self.override,
                     active=bool(fresh), count=self.frame['count'] if fresh else 0,
                     throttle=self.throttle, accepted=self.applied, collective=self.values,
                     inputs=self.participants())
@@ -106,14 +103,14 @@ async def connection_loop(state, endpoint, key, stop):
                         state.invalidate()  # Never resume a previous aggregate on reconnect.
                     while not stop.is_set():
                         with state.lock:
-                            generation, ready, override = state.generation, state.ready, state.override
+                            generation, ready = state.generation, state.ready
                             throttle = state.throttle
                         if not generation_valid(generation):
                             await asyncio.sleep(.1)
                             continue
                         nonce = secrets.token_hex(16)
                         sent = state.clock()
-                        await ws.send_json(dict(generation=int(generation), ready=ready, override=override, throttle=throttle, nonce=nonce))
+                        await ws.send_json(dict(generation=int(generation), ready=ready, throttle=throttle, nonce=nonce))
                         frame = await asyncio.wait_for(ws.receive_json(), .5)
                         with state.lock:
                             state.accept(frame, nonce, sent)
@@ -145,24 +142,8 @@ def running(config, simulator_port):
     handler = phone.handler_for(state, secret)
     class Observer(handler):
         def do_POST(self):
-            if (not self.authorised() or urlsplit(self.path).path != '/override'
-                    or self.headers.get('Origin') != 'http://' + self.headers.get('Host', '')):
-                return self.reply(403, {})
-            try:
-                length = int(self.headers.get('Content-Length', 0))
-                if not 0 < length <= 100:
-                    raise ValueError('Invalid request size')
-                self.connection.settimeout(1)
-                data = json.loads(self.rfile.read(length))
-                if not isinstance(data, dict) or set(data) != {'enabled'} or type(data['enabled']) is not bool:
-                    raise ValueError('Invalid override')
-                with state.lock:
-                    state.override = data['enabled']
-                    state.invalidate()
-                print('Operator intervention: ' + ('local control enabled' if data['enabled'] else 'crowd control enabled; fresh input required'), flush=True)
-                self.reply(200, {'override': data['enabled']})
-            except (ValueError, OSError):
-                self.reply(400, {})
+            # Hosted mode exposes status and projection only. Never inherit a write route.
+            self.reply(403, {})
     server = phone.ThreadingHTTPServer(('127.0.0.1', config['port']), Observer)
     server.daemon_threads = True
     stop = threading.Event()
@@ -171,9 +152,9 @@ def running(config, simulator_port):
                threading.Thread(target=lambda: asyncio.run(connect(state, url, key, stop)), daemon=True)]
     state.projection_url = f'http://127.0.0.1:{server.server_port}/projection?key={secret}'
     print(f'Hosted controls: {url}\nLocal projection: {state.projection_url}\n'
-          f'Local operator monitor: http://127.0.0.1:{server.server_port}/?key={secret}&monitor=1\n'
+          f'Local monitor: http://127.0.0.1:{server.server_port}/?key={secret}&monitor=1\n'
           'The relay participant link must include the participant key. Local HTTP controls are disabled in hosted mode.\n'
-          'Use the local operator monitor to take manual control. Loss never pauses flight.', flush=True)
+          'The local monitor is read-only. Pause and reset in FlightGear; loss never pauses flight.', flush=True)
     for thread in threads:
         thread.start()
     try:

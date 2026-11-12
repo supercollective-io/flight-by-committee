@@ -21,7 +21,6 @@ let lastReply=null, problem=null, retryDelay=100, pollingStopped=false;
 function fail(message){problem=message;lost(message);}
 function lost(message){$('data').hidden=true;$('votes').innerHTML='';$('count').textContent='—';$('status').hidden=false;$('status').textContent=message;}
 function render(s){
- if(s.override)return lost('Operator intervention · local control enabled');
  if(s.relay===false)return lost('Relay unavailable · flight continues');
  if(!s.simulator)return lost('FlightGear unavailable');
  if(!s.ready)return lost('Waiting for approach readiness');

@@ -1,7 +1,7 @@
 # Hosted Flight controls
 
 The public participant interface is intended for
-[flight.supercollective.io](https://flight.supercollective.io). It returns to
+[fly.supercollective.io](https://fly.supercollective.io). It returns to
 [Rehearsing We](https://we.supercollective.io). The relay runs independently of
 Polymind and keeps anonymous Flight identities separate. This repository prepares
 the service; no public deployment or physical rehearsal is claimed here.
@@ -25,8 +25,8 @@ active. Returning to the hub also stops input and the contribution expires.
 Phones send at roughly 10 Hz, one request at a time. The server issues single-use
 500 ms challenges and uses its own receive clock, never a phone timestamp.
 The local bridge opens the only simulator connection, outbound to `/ws/bridge`.
-It polls at roughly 10 Hz with a fresh nonce, simulator generation, readiness,
-operator-override state and throttle. Replies contain only the five bounded
+It polls at roughly 10 Hz with a fresh nonce, simulator generation, readiness
+and throttle. Replies contain only the five bounded
 axes, a brake-release identifier and display data. They cannot contain property
 paths, commands, pause or reset requests.
 
@@ -42,14 +42,61 @@ remains a third release path (configured to 1 second).
 On loss, pitch, roll, rudder and wheel brakes release. **Throttle is retained and
 flight continues; it does not pause automatically.** Trim is left alone. A
 frozen FlightGear renderer cannot run its watchdog until rendering resumes.
-Phones, local operator monitor and projection show relay loss or operator
-intervention and hide stale collective controls.
+Phones, local monitor and projection show relay loss and hide stale collective
+controls.
+
+The bridge telemetry schema changed when the local override capability was
+removed. The current relay accepts exactly generation, readiness, throttle and
+nonce. Pair the hosted relay and local launcher from the same revision: an old
+launcher sends an extra field that the current relay rejects, and a current
+launcher omits a field that an old relay requires. Complete this as a coordinated
+deployment; this change does not deploy or reconnect a running simulator.
+
+### Upgrade and relaunch as one revision
+
+Perform this upgrade between attempts. The launcher owns its FlightGear process;
+restarting the launcher also stops that simulator process. Announce the end of
+the current attempt, pause FlightGear locally, and finish the attempt before
+stopping it. Do not use a launcher restart as a way to attach to an already
+running simulator.
+
+1. Choose and record the exact release commit.
+2. Between attempts, announce the end, pause FlightGear locally, finish the
+   attempt and stop the old launcher. Stopping the launcher also stops its
+   FlightGear process.
+3. On the FlightGear computer, preserve any unrelated local changes, fetch the
+   repository and check out that commit:
+
+   ```sh
+   git fetch origin
+   git switch --detach <release-commit>
+   git rev-parse HEAD
+   ```
+
+   Do not force-reset the checkout. Confirm the printed revision matches the
+   release commit before continuing.
+4. In Coolify, deploy the Flight application from the same release commit.
+   Keep the existing participant key, bridge key, origin and port unchanged.
+   Confirm Coolify reports the same commit as the local checkout.
+5. In the same private shell that holds the existing `FLIGHT_BRIDGE_KEY`, set
+   `FLIGHT_RELAY_URL=https://fly.supercollective.io` and run
+   `uv run fly run karlsruhe-747-landing`. This starts the saved approach and
+   the bridge from the matching revision. Do not put either key in a command
+   argument or print it.
+6. Wait for the terminal to report `Relay connected` and for `Waiting for approach
+   readiness` to clear. Open the newly printed loopback monitor URL on that
+   computer. Share the public participant invitation only after the approach
+   is ready.
+
+The relay restart clears the current session and requires fresh participant
+handshakes. Loss releases momentary controls, retains throttle and does not
+pause FlightGear automatically.
 
 ## Coolify Application
 
 Use a Git-backed **Dockerfile Application**, one replica, base directory `/`,
 Dockerfile `/Dockerfile`, internal port `8080`. Set the domain to
-`https://flight.supercollective.io:8080`; clients use the normal HTTPS URL.
+`https://fly.supercollective.io:8080`; clients use the normal HTTPS URL.
 Allow WebSocket upgrades through the proxy. Do not publish a host port or add
 custom proxy labels. There is no database, persistent volume, simulator or worker
 in this image. Restart intentionally clears the flight session.
@@ -77,7 +124,7 @@ error naming the affected setting without printing its value. Both keys are
 required before the health endpoint can become ready.
 The bare domain serves a public homepage with a link to the GitHub project for
 people who want to run their own flight. It exposes no session data or controls.
-The audience joins `https://flight.supercollective.io/?key=PARTICIPANT_KEY`.
+The audience joins `https://fly.supercollective.io/?key=PARTICIPANT_KEY`.
 Invalid or empty invitation keys still return 403, as do unauthenticated requests
 for session status, join details, projection or the relay script.
 The bridge uses a Bearer header; its key never appears in audience HTML or URLs.
@@ -105,28 +152,25 @@ Keep the property socket and FlightGear HTTP bound to `127.0.0.1`. The launcher
 still allocates a temporary property port. Never forward either simulator port.
 
 ```sh
-export FLIGHT_RELAY_URL=https://flight.supercollective.io
+export FLIGHT_RELAY_URL=https://fly.supercollective.io
 # Supply FLIGHT_BRIDGE_KEY privately in this shell, matching Coolify.
 uv run fly run karlsruhe-747-landing
 ```
 
-The terminal prints a fresh local operator monitor and projection URL. Hosted
-mode binds that HTTP server to loopback only, and rejects local participant
-input. Give the audience the public participant invitation, not the local
-operator URL. Compose the single FlightGear capture and local overlay following
+The terminal prints a fresh local read-only monitor and projection URL. Hosted
+mode binds that HTTP server to loopback only and rejects every local POST,
+including requests with the monitor key. Give the audience the public
+participant invitation, not the local monitor URL. Compose the single FlightGear
+capture and local overlay following
 [Projection](projection.md). The public `/projection?key=PARTICIPANT_KEY` route
 also observes the relay without registering a vote.
 
-On the local operator monitor, **Take local control** immediately invalidates
-crowd input. The simulator watchdog releases momentary controls; then use the
-simulator's own controls. The public phones and overlay display **Operator
-intervention**. **Return to crowd control** clears the previous collective state
-and requires fresh handshakes. Announce the intervention; do not attribute the
-result to the crowd. Pause and reset remain local FlightGear actions.
-
-To finish an unsuccessful attempt, take local control, pause locally, announce
-the ending and direct participants back to the hub. Reset locally only when
-ready for another attempt. Do not keep a failed attempt running invisibly.
+Pause and reset remain local FlightGear actions. Pause does not change relay
+readiness or clear participant votes. Ask participants to release all controls
+before resuming. A reset that changes simulator generation or readiness clears
+the relay epoch and requires fresh participant handshakes. To finish an
+unsuccessful attempt, pause locally, announce the ending and direct participants
+back to the hub. Reset locally only when ready for another attempt.
 
 ## Saved approach and rehearsal record
 
@@ -158,7 +202,9 @@ Before releasing a performance version:
    fresh-touch recovery without queued commands.
 4. Reset during held input. Confirm the approach is ready before new touches,
    old epochs are rejected and throttle follows the reset aircraft.
-5. Exercise local override, local pause, failed-attempt ending and restart.
+5. Verify FlightGear pause and reset remain local actions; release controls
+   before unpausing. Verify readiness or generation changes require a fresh
+   handshake. Exercise failed-attempt ending and restart.
 6. Measure phone-to-visible-aircraft response under actual crowd/network load;
    use p95 below 250 ms as the initial target, then assess with people.
 
