@@ -99,6 +99,28 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get('/?key=' + PARTICIPANT)).status, 200)
         self.assertEqual((await self.client.get('/?key=' + BRIDGE)).status, 403)
 
+    async def test_public_homepage_keeps_performance_private(self):
+        for path in ('/', '/?utm_source=programme'):
+            response = await self.client.get(path)
+            self.assertEqual(response.status, 200)
+            body = await response.text()
+            self.assertIn('https://github.com/supercollective-io/flight-by-committee', body)
+            self.assertIn('invitation link', body)
+            for private in (PARTICIPANT, BRIDGE, '/relay.js', 'id="controls"'):
+                self.assertNotIn(private, body)
+        for path in ('/', '/status', '/join', '/projection', '/relay.js'):
+            for query in ('?key=', '?key=invalid', '?key=' + BRIDGE):
+                self.assertEqual((await self.client.get(path + query)).status, 403)
+            if path != '/':
+                self.assertEqual((await self.client.get(path)).status, 403)
+        invitation = await self.client.get('/?key=' + PARTICIPANT)
+        self.assertEqual(invitation.status, 200)
+        self.assertIn('id="controls"', await invitation.text())
+        self.assertEqual(invitation.headers['Cache-Control'], 'no-store')
+        self.assertEqual(invitation.headers['Referrer-Policy'], 'no-referrer')
+        self.assertFalse(self.relay.sockets)
+        self.assertFalse(self.relay.state.sessions)
+
     async def test_observer_handshake_and_centred_denominator(self):
         bridge = await self.bridge()
         await self.poll(bridge)

@@ -75,7 +75,11 @@ applications do not automatically generate Compose-style service secrets.
 A missing, blank, malformed or duplicated key stops startup with a configuration
 error naming the affected setting without printing its value. Both keys are
 required before the health endpoint can become ready.
+The bare domain serves a public homepage with a link to the GitHub project for
+people who want to run their own flight. It exposes no session data or controls.
 The audience joins `https://flight.supercollective.io/?key=PARTICIPANT_KEY`.
+Invalid or empty invitation keys still return 403, as do unauthenticated requests
+for session status, join details, projection or the relay script.
 The bridge uses a Bearer header; its key never appears in audience HTML or URLs.
 Keep query strings out of proxy access logs because participant invitations
 contain a key. Application access logging is disabled. Rotate both keys between
