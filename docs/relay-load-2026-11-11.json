@@ -1,0 +1,37 @@
+{
+  "kind": "synthetic localhost, no simulator",
+  "clients": 140,
+  "rounds": 300,
+  "injected_jitter_ms": [
+    0,
+    30.0
+  ],
+  "elapsed_s": 31.16,
+  "input_round_trip": {
+    "samples": 42001,
+    "p50_ms": 16.12,
+    "p95_ms": 26.46,
+    "max_ms": 136.14
+  },
+  "aggregate_round_trip": {
+    "samples": 304,
+    "p50_ms": 0.84,
+    "p95_ms": 1.09,
+    "max_ms": 10.45
+  },
+  "bridge_frame_interval": {
+    "samples": 303,
+    "p50_ms": 101.03,
+    "p95_ms": 101.7,
+    "max_ms": 403.95
+  },
+  "batch_input_to_bridge": {
+    "samples": 300,
+    "p50_ms": 100.35,
+    "p95_ms": 102.36,
+    "max_ms": 197.65
+  },
+  "participant_disconnect_rejoin": "passed (20%)",
+  "bridge_disconnect_recovery": "passed",
+  "simulator_generation_reset": "passed"
+}

@@ -1,6 +1,7 @@
 # A reusable phone layout and aircraft mapping, selected by a flight profile.
 layout = "landing"
-port = 8080
+# FlightGear keeps its built-in web interface on localhost:8080.
+port = 8081
 expiry_s = 1.0
 ready_property = "/sim/committee/approach-ready"
 # Explicit release also clears the model's independent parking/automatic brakes.

@@ -1,0 +1,16 @@
+.git
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+config
+profiles
+assets
+preview
+test-results
+tests
+docs
+.DS_Store

@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import tomllib
+import threading
 import uuid
 
 if __package__ in (None, ''):
@@ -233,19 +234,36 @@ def stop(process):
 
 
 @contextmanager
-def simulator(command, state, log):
+def simulator(command, state, log, *, echo=False):
     """Own one simulator and its activation helper, including interrupt cleanup."""
     state.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.pop('FG_LAUNCHER', None)
     env['FG_HOME'] = str(state.resolve())
     process = activation = None
+    relay = None
     previous = signal.getsignal(signal.SIGTERM)
     def terminate(signum, frame):
         raise SystemExit(128 + signum)
     signal.signal(signal.SIGTERM, terminate)
     try:
-        process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(command, env=env,
+                                   stdout=subprocess.PIPE if echo else log,
+                                   stderr=subprocess.STDOUT)
+        if echo:
+            def forward_output():
+                # Keep the full log while surfacing diagnostics immediately, even
+                # if FlightGear subsequently blocks on a graphical error dialog.
+                for raw in iter(process.stdout.readline, b''):
+                    line = raw.decode('utf-8', errors='replace')
+                    log.write(line)
+                    log.flush()
+                    # WARN/ALRT include routine scenery, weather and renderer
+                    # notices. Keep those in the log; surface explicit errors.
+                    if re.search(r'\[(?:ERR|ERROR|FATAL)\]|^(?:fatal|error|startup failed|unknown command-line option|incompatible processor)\b', line.strip(), re.I):
+                        print('FlightGear: ' + line.rstrip('\r\n'), file=sys.stderr, flush=True)
+            relay = threading.Thread(target=forward_output, daemon=True)
+            relay.start()
         if sys.platform == 'darwin':
             try:
                 activation = subprocess.Popen(['/usr/bin/osascript', '-l', 'JavaScript', '-e', '''
@@ -267,6 +285,10 @@ function run(argv) {
         yield process
     finally:
         stop(process)
+        if relay:
+            relay.join(timeout=3)
+            if not relay.is_alive():
+                process.stdout.close()
         stop(activation)
         signal.signal(signal.SIGTERM, previous)
 
@@ -288,23 +310,51 @@ def run(resolved, root=None):
     if input_config:
         import socket
         from scripts import phone_control
-        with socket.socket() as probe:
-            probe.bind(('127.0.0.1', 0))
-            control_port = probe.getsockname()[1]
+        if input_config['port'] == 8080:
+            raise ValueError('Phone HTTP port 8080 conflicts with FlightGear HTTP; use a separate port such as 8081.')
+        try:
+            with socket.socket() as probe:
+                probe.bind(('127.0.0.1', 0))
+                control_port = probe.getsockname()[1]
+        except OSError as exc:
+            raise ValueError(f'Cannot allocate the local FlightGear control socket (127.0.0.1): {exc}') from exc
         watchdog = directory / 'phone-watchdog.xml'
         phone_control.watchdog_xml(input_config, watchdog)
-        command.extend([f'--telnet=socket,bi,100,127.0.0.1,{control_port},tcp',
+        # Keep Phi/property inspection separate from the phone/overlay server.
+        # A localhost listener can steal traffic from a wildcard bind on macOS.
+        command.extend(['--httpd=127.0.0.1:8080', f'--telnet=socket,bi,100,127.0.0.1,{control_port},tcp',
                         f'--config={watchdog.resolve()}'])
     record = dict(resolved, command=command, fg_home=str(state), started_at=stamp)
     (directory / 'launch.json').write_text(json.dumps(record, indent=2) + '\n')
     print(f"Starting {resolved['profile_name']}. Log: {directory / 'simulator.log'}", flush=True)
+    if input_config:
+        print('FlightGear web interface (this computer only): http://127.0.0.1:8080/', flush=True)
+    if resolved.get('projection'):
+        print('Projection: select an external view → View / Add Clone View; then return the main view to Captain.', flush=True)
     with (directory / 'simulator.log').open('w') as log:
         from contextlib import ExitStack
         with ExitStack() as stack:
             if input_config:
-                stack.enter_context(phone_control.running(input_config, control_port))
-            process = stack.enter_context(simulator(command, state, log))
+                if os.environ.get('FLIGHT_RELAY_URL'):
+                    from scripts import relay_bridge
+                    controller = relay_bridge
+                else:
+                    controller = phone_control
+                phone_state = stack.enter_context(controller.running(input_config, control_port))
+                if resolved.get('projection'):
+                    from scripts.projection import open_projection
+                    open_projection(phone_state.projection_url)
+            process = stack.enter_context(simulator(command, state, log, echo=True))
             status = process.wait()
+    if status != 0:
+        print(f'FlightGear exited with {"signal " + str(-status) if status < 0 else "status " + str(status)}. '
+              f'Log: {directory / "simulator.log"}', file=sys.stderr, flush=True)
+        diagnostic_lines = (directory / 'simulator.log').read_text().strip().splitlines()
+        if diagnostic_lines:
+            print('Last FlightGear log lines:\n' + '\n'.join(diagnostic_lines[-20:]), file=sys.stderr, flush=True)
+        else:
+            print('FlightGear emitted no console diagnostics. Check its error popup; '
+                  'this build can report startup errors only in a dialog.', file=sys.stderr, flush=True)
     return status if status >= 0 else 128 - status
 
 
@@ -317,6 +367,7 @@ def main(argv=None):
     for field in ('installation', 'location', 'rendering', 'aircraft', 'binary', 'fg-root'):
         launch.add_argument('--' + field)
     launch.add_argument('--altitude-m', type=float)
+    launch.add_argument('--projection', action='store_true', help='Open OBS and the overlay preview; show extra-view setup guidance')
     launch.add_argument('--dry-run', action='store_true', help='Print resolved configuration without launching or checking installed assets')
     args = parser.parse_args(argv)
     try:
@@ -334,6 +385,8 @@ def main(argv=None):
                 raise ValueError('Profile number out of range')
             args = launch.parse_args([profiles[choice - 1].stem])
         resolved = resolve(args.profile, overrides=vars(args))
+        if args.projection:
+            resolved['projection'] = True
         if resolved['profile'].get('warning'):
             print(resolved['profile']['warning'], file=sys.stderr)
         if args.dry_run:

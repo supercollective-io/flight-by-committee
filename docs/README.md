@@ -18,3 +18,5 @@ The project prefers open source. The venue, simulator and final control arrangem
 - [Simulator](decisions/0002-simulator.md): proposed choice and supporting research.
 - [Audience controls](decisions/0003-audience-controls.md): proposed experiments, Carpenter's demonstration and Legion research.
 - [Runtime and networking](decisions/0004-runtime.md): proposed architecture and deployment.
+
+- [Hosted Flight controls](relay-operations.md): relay, outbound bridge, Coolify, recovery and LAN fallback.

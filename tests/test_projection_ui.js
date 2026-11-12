@@ -1,0 +1,57 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const elements=new Map();
+const element=id=>{if(!elements.has(id))elements.set(id,{style:{}});return elements.get(id);};
+const requests=[];
+const context=vm.createContext({document:{getElementById:element},URLSearchParams,
+ location:{search:'?key=test'},AbortController,performance:{now:()=>0},
+ fetch:url=>{requests.push(url);return new Promise(()=>{});},setTimeout(){},clearTimeout(){},setInterval(){}});
+const html=fs.readFileSync('scripts/phone/projection.html','utf8');
+vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],context);
+assert.deepEqual(requests,['/status?key=test']);
+context.state={simulator:true,ready:true,active:true,count:2,throttle:.4,
+ collective:{roll:0,pitch:0,throttle:.6,rudder:-.5,brake:.5},inputs:[{roll:-1,pitch:0},{roll:1,pitch:0}]};
+vm.runInContext('render(state)',context);
+assert.equal(element('data').hidden,false);
+assert.equal(element('throttle-value').textContent,'60%');
+assert.equal(element('rudder').textContent,'Left 50%');
+assert.equal((element('votes').innerHTML.match(/<circle/g)||[]).length,3);
+vm.runInContext("lost('Disconnected')",context);
+assert.equal(element('data').hidden,true);
+assert.equal(element('votes').innerHTML,'');
+context.state.active=false;vm.runInContext('render(state)',context);
+assert.equal(element('data').hidden,true);
+context.state.simulator=false;vm.runInContext('render(state)',context);
+assert.equal(element('status').hidden,false);
+assert.equal(element('status').textContent,'FlightGear unavailable');
+console.log('Projection: read-only polling, distribution, controls and stale state passed.');
+
+(async()=>{
+ const run=code=>vm.runInContext(code,context);
+ context.state.simulator=context.state.ready=context.state.active=true;
+ context.fetch=async()=>({ok:true,json:async()=>context.state});
+ await run('exchange()');
+ assert.equal(element('status').hidden,true);
+ assert.equal(element('status').textContent,'');
+ assert.equal(element('data').hidden,false);
+ context.fetch=async()=>({ok:false,status:403});
+ await run('exchange()');
+ assert.equal(element('status').textContent,'Link expired or invalid · use this flight’s overlay URL');
+ assert.equal(element('data').hidden,true);
+ context.fetch=async()=>{throw new TypeError('Failed to fetch');};
+ await run('exchange()');
+ assert.match(element('status').textContent,/Cannot reach control server/);
+ context.fetch=async()=>({ok:true,json:async()=>{throw new SyntaxError();}});
+ await run('exchange()');
+ assert.equal(element('status').textContent,'Invalid status response · expected JSON');
+ context.fetch=async()=>({ok:true,json:async()=>context.state});
+ await run('exchange()');
+ assert.equal(element('status').hidden,true);
+ assert.equal(element('status').textContent,'');
+ context.fetch=async()=>({ok:false,status:404});
+ await run('exchange()');
+ assert.equal(run('pollingStopped'),true);
+ assert.match(element('status').textContent,/Wrong server/);
+ context.fetch=()=>{throw Error('404 must stop polling');};
+ await run('exchange()');
+ console.log('Projection polling: success, invalid key, network failure, invalid JSON and recovery passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
