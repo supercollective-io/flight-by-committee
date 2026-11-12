@@ -140,6 +140,10 @@ class Relay:
     async def page(self, request):
         if request.path == '/healthz':
             return web.json_response({'ok': True})
+        if request.path == '/' and 'key' not in request.query:
+            return web.Response(text=(HERE / 'phone' / 'home.html').read_text(), content_type='text/html',
+                                headers={'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+                                         'X-Content-Type-Options': 'nosniff'})
         if not hmac.compare_digest(request.query.get('key', ''), self.keys[0]):
             raise web.HTTPForbidden()
         if request.path == '/status':
