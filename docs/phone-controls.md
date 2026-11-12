@@ -97,7 +97,7 @@ flight trial and are deliberately easy to adjust.
 ## Scope and implementation
 
 The default launcher retains the local, trusted-network route. For the hosted
-HTTPS/WebSocket route, outbound bridge, override and deployment procedure, see
+HTTPS/WebSocket route, outbound bridge and deployment procedure, see
 [Hosted Flight controls](relay-operations.md). The remainder of this section
 describes LAN transport. Assets are served locally; QR generation uses the optional local
 `qrencode` executable. The join URL contains a new random access key each run;

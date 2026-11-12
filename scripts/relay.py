@@ -28,7 +28,6 @@ class Relay:
         self.generation = None
         self.sequence = 0
         self.bridge = None
-        self.override = False
         self.last_bridge = -float('inf')
         self.sockets = set()
 
@@ -42,7 +41,7 @@ class Relay:
         if not live:
             self.state.connected = self.state.ready = False
             self.state.invalidate()
-        return dict(self.state.status(), relay=live, epoch=self.epoch, override=self.override if live else False)
+        return dict(self.state.status(), relay=live, epoch=self.epoch)
 
     async def socket(self, request):
         role = request.match_info['role']
@@ -111,22 +110,21 @@ class Relay:
         return dict(self.state.exchange({k: data[k] for k in ('challenge', 'controls', 'release_brakes')} | {'session': session}), epoch=self.epoch)
 
     def poll(self, data):
-        if set(data) != {'generation', 'ready', 'override', 'throttle', 'nonce'}:
+        if set(data) != {'generation', 'ready', 'throttle', 'nonce'}:
             raise ValueError('Invalid telemetry')
-        if not generation_valid(data['generation']) or type(data['ready']) is not bool or type(data['override']) is not bool:
+        if not generation_valid(data['generation']) or type(data['ready']) is not bool:
             raise ValueError('Invalid simulator generation/readiness')
         if data['throttle'] is None:
             raise ValueError('Simulator throttle must be numeric')
         bounded_controls(dict(roll=0, pitch=0, rudder=0, brake=0, throttle=data['throttle']))
         if not isinstance(data['nonce'], str) or len(data['nonce']) != 32:
             raise ValueError('Invalid nonce')
-        ready = data['ready'] and not data['override']
+        ready = data['ready']
         if data['generation'] != self.generation or ready != self.state.ready or self.clock() - self.last_bridge >= .5:
             self.reset()
         self.generation = data['generation']
         self.state.generation = self.generation
         self.state.ready = ready
-        self.override = data['override']
         self.state.connected = True
         self.state.throttle = data['throttle']
         self.last_bridge = self.clock()

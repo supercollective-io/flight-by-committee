@@ -81,8 +81,7 @@ async function exchange(){
   const response=await (window.flightRequest||fetch)((observing?'/status':'/input')+'?key='+encodeURIComponent(key),observing?{signal:controller.signal}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session,challenge,release_brakes:releasePending,controls:challenge?{...values}:null}),signal:controller.signal});
   if(!response.ok)throw Error('Connection refused');
   const s=await response.json();if(sentRole!==roleVersion)return;lastReply=performance.now();
-  if(s.override)lost('Operator intervention · local control enabled');
-  else if(s.relay===false)lost('Relay unavailable — flight continues');
+  if(s.relay===false)lost('Relay unavailable — flight continues');
   else if(!s.simulator)lost('FlightGear unavailable');
   else if(!s.ready)lost('Waiting for approach readiness');
   else{

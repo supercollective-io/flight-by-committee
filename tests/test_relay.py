@@ -81,8 +81,8 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
     async def participant(self, **kwargs):
         return await self.client.ws_connect('/ws/participant?key=' + PARTICIPANT, headers={'Origin': ORIGIN}, **kwargs)
 
-    async def poll(self, ws, generation=1, ready=True, override=False):
-        await ws.send_json(dict(generation=generation, ready=ready, override=override, throttle=.45, nonce='n'*32))
+    async def poll(self, ws, generation=1, ready=True):
+        await ws.send_json(dict(generation=generation, ready=ready, throttle=.45, nonce='n'*32))
         return await ws.receive_json()
 
     async def send(self, ws, response=None, controls=VALUES):
@@ -162,21 +162,31 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(reconnect['active'])
         self.assertNotEqual(reconnect['epoch'], reset['epoch'])
 
-    async def test_local_operator_override_is_visible_and_requires_fresh_rejoin(self):
+    async def test_readiness_change_clears_votes_and_requires_fresh_handshake(self):
         bridge = await self.bridge()
-        await self.poll(bridge)
+        initial = await self.poll(bridge)
         phone = await self.participant()
         active = await self.send(phone, await self.send(phone))
         self.assertEqual(active['count'], 1)
-        frame = await self.poll(bridge, override=True)
-        self.assertFalse(frame['active'])
-        self.assertTrue(self.relay.status()['override'])
+        not_ready = await self.poll(bridge, ready=False)
+        self.assertFalse(not_ready['active'])
         self.assertFalse(self.relay.status()['ready'])
-        await self.poll(bridge, override=False)
-        self.assertFalse(self.relay.status()['override'])
+        ready = await self.poll(bridge, ready=True)
+        self.assertNotEqual(initial['epoch'], ready['epoch'])
+        self.assertFalse(ready['active'])
         stale = await self.send(phone, active)
         self.assertTrue(stale['resync'])
         self.assertEqual(stale['count'], 0)
+        handshake = await self.send(phone, stale)
+        self.assertEqual(handshake['count'], 1)
+
+    async def test_bridge_telemetry_has_exact_current_schema(self):
+        bridge = await self.bridge()
+        await bridge.send_json(dict(generation=1, ready=True, override=False,
+                                    throttle=.45, nonce='n'*32))
+        message = await bridge.receive()
+        self.assertEqual(message.type, aiohttp.WSMsgType.CLOSE)
+        self.assertEqual(message.data, 1008)
 
     async def test_rate_limit_and_invalid_frames_close_socket(self):
         for data in [{'kind': 'command', 'path': '/sim/freeze/master'}, []]:
@@ -257,8 +267,8 @@ class LocalWriterTests(unittest.TestCase):
         self.assertIn('set ' + phone_control.PREFIX + 'alive 0', commands)
         self.assertNotIn('set ' + phone_control.PREFIX + 'alive 1', commands)
 
-class OperatorServerTests(unittest.TestCase):
-    def test_local_monitor_requires_own_key_origin_and_explicit_action(self):
+class ObserverServerTests(unittest.TestCase):
+    def test_hosted_local_monitor_rejects_every_write_even_with_its_key(self):
         import http.client
         from urllib.parse import urlsplit
         from unittest.mock import patch
@@ -279,14 +289,17 @@ class OperatorServerTests(unittest.TestCase):
                     response = connection.getresponse()
                     result = response.status, json.loads(response.read())
                     return result
-                self.assertEqual(post('/override?' + key, {'enabled':True})[0], 403)
-                self.assertEqual(post('/override?key=' + PARTICIPANT, {'enabled':True}, {'Origin':origin})[0], 403)
-                self.assertEqual(post('/override?' + key, {'enabled':True}, {'Origin':'https://evil.test'})[0], 403)
-                self.assertEqual(post('/override?' + key, {'enabled':True}, {'Origin':origin})[0], 200)
-                self.assertTrue(state.override)
-                self.assertEqual(post('/input?' + key, {}, {'Origin':origin})[0], 403)
-                self.assertEqual(post('/override?' + key, {'enabled':False}, {'Origin':origin})[0], 200)
-                self.assertFalse(state.override)
+                for path, data in (('/input', {}), ('/leave', {'session':'s'}),
+                                   ('/override', {'enabled':True})):
+                    self.assertEqual(post(path + '?' + key, data, {'Origin':origin})[0], 403)
+                connection.request('GET', '/status?' + key)
+                response = connection.getresponse()
+                self.assertEqual(response.status, 200)
+                status = json.loads(response.read())
+                self.assertNotIn('override', status)
+                self.assertNotIn('local_operator', status)
+                self.assertFalse(hasattr(state, 'override'))
+                self.assertFalse(hasattr(state, 'local_operator'))
                 connection.close()
 
 
