@@ -52,6 +52,16 @@ class ProfileTests(unittest.TestCase):
         self.assertFalse(any(arg.startswith('--metar=') for arg in command))
         self.assertIn('Experimental', resolved['profile']['warning'])
 
+    def test_takeoff_phone_controls_wait_for_ground_start_not_approach(self):
+        resolved = self.resolve('karlsruhe-747-takeoff')
+        config = resolved['input_config']
+        self.assertEqual(resolved['profile']['input'], 'phone-takeoff')
+        self.assertEqual(config['ready_property'], '/sim/signals/fdm-initialized')
+        self.assertIn('/controls/gear/brake-parking', config['brake_release_paths'])
+        self.assertEqual(len(config['controls']['throttle']['paths']), 4)
+        self.assertIn('--on-ground', resolved['command'])
+        self.assertNotIn('initialisation', resolved['profile'])
+
     def test_overrides_replace_instead_of_duplicate(self):
         result = self.resolve(aircraft='c172p', installation='stable', altitude_m=1200)
         self.assertEqual([a for a in result['command'] if a.startswith('--aircraft=')], ['--aircraft=c172p'])
