@@ -1,3 +1,8 @@
+# Private environment configuration
+.env
+.env.*
+!.env.example
+
 # macOS metadata
 .DS_Store
 ._*
