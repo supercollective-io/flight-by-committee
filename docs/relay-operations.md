@@ -264,3 +264,32 @@ alias selects the non-`www` origin regardless of order; configure the alias to
 redirect there. Unrelated domains, missing settings and malformed values stop
 startup. An explicit `FLIGHT_PUBLIC_ORIGIN` takes precedence. Outside Coolify,
 supply that explicit origin. No request header determines the trusted origin.
+
+
+## Shared operator API and Hub preparation
+
+Configure optional `FLIGHT_OPERATOR_TOKEN` as a persistent, distinct URL-safe secret
+of 32–128 characters. It must differ from both existing keys. Existing deployments
+continue running without it; the operator API then rejects access. Keep this token
+runtime-only, and configure the same value as `HUB_FLIGHT_TOKEN` in Hub. Allow the
+Flight origin in Hub separately. Do not put the operator token in any URL.
+
+Flight’s `/operator` page accepts this token and uses the same Bearer-authenticated
+API available to external clients:
+
+- `GET /api/operator/sessions`: a collection containing the current flight.
+- `GET /api/operator/sessions/current`: that same resource, with `id`, `title`,
+  `participantUrl` and `status` (`simulator-disconnected`, `simulator-loading` or
+  `aircraft-ready`).
+
+Responses are not cached. The page keeps the token only in memory; refreshing the
+page requires sign-in again. It exposes the audience invitation as a link and can
+refresh status. The operator API cannot join as a participant, attach a bridge,
+create another simulator, pause, reset or replace a session. Starting and stopping
+the local launcher remains a local operation.
+
+Hub’s show profile selects the `current` resource and retrieves its audience link
+automatically at launch. The profile stores no credential. The resource represents
+the relay’s single current session, shared by rehearsals; preparing it does not
+isolate or restart the simulator. Deploy this API before enabling automatic Flight
+preparation in Hub, preserving the existing audience and bridge keys.

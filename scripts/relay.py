@@ -16,11 +16,14 @@ HERE = Path(__file__).parent
 
 
 class Relay:
-    def __init__(self, participant_key, bridge_key, origin, clock=time.monotonic):
+    def __init__(self, participant_key, bridge_key, origin, clock=time.monotonic, operator_token=None):
         if any(not re.fullmatch(r'[A-Za-z0-9_-]{24,128}', key) for key in (participant_key, bridge_key)) or participant_key == bridge_key:
             raise ValueError('Use distinct participant and bridge keys of at least 24 characters')
         if not origin.startswith(('https://', 'http://127.0.0.1:')) or origin.endswith('/'):
             raise ValueError('Set the exact HTTPS public origin without a trailing slash')
+        if operator_token is not None and (not re.fullmatch(r'[A-Za-z0-9_-]{32,128}', operator_token) or operator_token in (participant_key, bridge_key)):
+            raise ValueError('FLIGHT_OPERATOR_TOKEN must be a distinct URL-safe token of 32–128 characters')
+        self.operator_token = operator_token
         self.keys = participant_key, bridge_key
         self.origin, self.clock = origin, clock
         self.state = State({'expiry_s': 1.0}, clock)
@@ -135,7 +138,27 @@ class Relay:
                     controls=status['collective'], brake_release=self.state.brake_release,
                     count=status['count'], inputs=status['inputs'])
 
+    async def operator_sessions(self, request):
+        token = request.headers.get('Authorization', '').removeprefix('Bearer ')
+        if not request.headers.get('Authorization', '').startswith('Bearer ') or not self.operator_token or not hmac.compare_digest(token.encode(), self.operator_token.encode()):
+            raise web.HTTPUnauthorized(headers={'Cache-Control': 'no-store'})
+        if request.match_info.get('id') not in (None, 'current'):
+            raise web.HTTPNotFound()
+        state = self.status()
+        resource = {'id': 'current', 'title': 'Flight',
+                    'participantUrl': self.origin + '/?key=' + self.keys[0],
+                    'status': 'aircraft-ready' if state['ready'] else
+                              'simulator-loading' if state['relay'] else 'simulator-disconnected'}
+        return web.json_response(resource if request.match_info.get('id') else [resource],
+                                 headers={'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer'})
+
     async def page(self, request):
+        if request.path in ('/operator', '/operator.js'):
+            file = 'operator.html' if request.path == '/operator' else 'operator.js'
+            return web.Response(text=(HERE / 'phone' / file).read_text(),
+                                content_type='text/html' if file.endswith('.html') else 'text/javascript',
+                                headers={'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+                                         'X-Content-Type-Options': 'nosniff'})
         if request.path == '/healthz':
             return web.json_response({'ok': True})
         if request.path == '/' and 'key' not in request.query:
@@ -158,6 +181,8 @@ class Relay:
 
     def app(self):
         app = web.Application(client_max_size=4096)
+        app.router.add_get('/api/operator/sessions', self.operator_sessions)
+        app.router.add_get('/api/operator/sessions/{id}', self.operator_sessions)
         app.router.add_get('/ws/{role}', self.socket)
         app.router.add_get('/{path:.*}', self.page)
         async def close(app):
@@ -187,7 +212,7 @@ def configuration(env):
 def main():
     try:
         participant, bridge, origin, port = configuration(os.environ)
-        relay = Relay(participant, bridge, origin)
+        relay = Relay(participant, bridge, origin, operator_token=os.environ.get('FLIGHT_OPERATOR_TOKEN'))
     except ValueError as error:
         raise SystemExit(f'Flight configuration error: {error}') from None
     web.run_app(relay.app(), host='0.0.0.0', port=port, access_log=None)

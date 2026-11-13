@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en-GB">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Flight operator</title>
+<style>
+:root { color-scheme: light; font: 18px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; background: #f3f3ef; color: #191919; }
+* { box-sizing: border-box; } body { max-width: 760px; margin: auto; padding: 32px 20px; }
+h1 { text-wrap: balance; font-size: clamp(2.5rem, 8vw, 4rem); line-height: 1; letter-spacing: -.03em; }
+p { max-width: 65ch; } label { display: block; } input, button { font: inherit; min-height: 48px; padding: 10px 14px; border: 1px solid #85877e; border-radius: 0; }
+input { width: 100%; margin: 8px 0 16px; } button { background: #191919; color: white; cursor: pointer; } button:hover { background: #353630; } button:disabled { opacity: .6; cursor: wait; }
+a:hover { text-decoration-thickness: 2px; } button, a { touch-action: manipulation; -webkit-tap-highlight-color: #e3fa49; }
+a { color: inherit; text-underline-offset: .2em; display: inline-block; padding-block: 12px; } :focus-visible { outline: 3px solid #2455cc; outline-offset: 4px; }
+::selection { background: #e3fa49; color: #191919; } section { border-top: 1px solid #bfc1b8; margin-top: 24px; padding-top: 16px; } [hidden] { display: none; }
+</style></head><body><main><h1>Flight operator</h1>
+<form id="sign-in"><label for="token">Operator token</label><input id="token" name="token" spellcheck="false" type="password" autocomplete="current-password" required><button>Connect to Flight</button></form>
+<p id="feedback" role="status" aria-live="polite"></p>
+<section id="flight" hidden><h2>Current flight</h2><p id="status"></p>
+<a id="invitation" target="_blank" rel="noopener noreferrer">Open participant invitation</a><br>
+<button id="refresh" type="button">Refresh status</button> <button id="sign-out" type="button">Sign out</button>
+<p>Start FlightGear and its bridge on the simulator computer. Pause and reset there. Release phone controls before resuming. Connection loss does not pause FlightGear.</p>
+</section></main><script src="/operator.js" defer></script></body></html>
