@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch named FlightGear profiles. Run with uv run fly."""
 import argparse
+import copy
 from contextlib import contextmanager
 import datetime as dt
 import json
@@ -86,18 +87,28 @@ def installation(which, root=ROOT, binary=None, fg_root=None):
     return data
 
 
-def resolve(profile_name, *, root=None, overrides=None):
+def profile_path(profile_name, root=ROOT):
+    """Custom profiles cannot shadow shipped profiles."""
+    filename = f'{name(profile_name)}.toml'
+    shipped = root / 'profiles' / filename
+    return shipped if shipped.exists() else root / 'profiles/local' / filename
+
+
+def resolve(profile_name, *, root=None, overrides=None, profile_data=None):
     """Resolve and validate configuration without touching simulator state."""
     root = ROOT if root is None else root
     overrides = overrides or {}
-    profile = read(root / 'profiles' / f'{name(profile_name)}.toml')
+    name(profile_name)
+    profile = copy.deepcopy(profile_data) if profile_data is not None else read(profile_path(profile_name, root))
     keys(profile, ('description', 'warning', 'installation', 'location', 'rendering', 'aircraft', 'flight', 'properties', 'initialisation', 'livery', 'input'),
          ('description', 'installation', 'location', 'rendering', 'aircraft'), profile_name)
     for field in ('description', 'warning'):
         if field in profile and not isinstance(profile[field], str):
             raise ValueError(f'{field} must be a string')
-    for field in ('installation', 'location', 'rendering', 'aircraft'):
+    for field in ('installation', 'rendering', 'aircraft'):
         profile[field] = name(overrides.get(field) or profile[field])
+    if overrides.get('location'):
+        profile['location'] = name(overrides['location'])
     input_config = None
     if 'input' in profile:
         from scripts import phone_control
@@ -106,7 +117,11 @@ def resolve(profile_name, *, root=None, overrides=None):
     if 'livery' in profile:
         build_livery.livery_directory(root, profile['aircraft'], profile['livery'])
     install = installation(profile['installation'], root, overrides.get('binary'), overrides.get('fg_root'))
-    location = read(root / 'config/locations' / f"{profile['location']}.toml")
+    location = profile['location']
+    if isinstance(location, str):
+        location = read(root / 'config/locations' / f'{name(location)}.toml')
+    else:
+        location = copy.deepcopy(location)
     keys(location, ('airport', 'latitude_deg', 'longitude_deg', 'heading_deg', 'on_ground'),
          ('heading_deg', 'on_ground'), profile['location'])
     has_coords = 'latitude_deg' in location or 'longitude_deg' in location
@@ -293,7 +308,7 @@ function run(argv) {
         signal.signal(signal.SIGTERM, previous)
 
 
-def run(resolved, root=None):
+def run(resolved, root=None, *, on_started=None):
     root = ROOT if root is None else root
     validate_assets(resolved)
     build_livery.prepare(resolved, root=root)
@@ -334,6 +349,7 @@ def run(resolved, root=None):
     with (directory / 'simulator.log').open('w') as log:
         from contextlib import ExitStack
         with ExitStack() as stack:
+            phone_state = None
             if input_config:
                 if os.environ.get('FLIGHT_RELAY_URL'):
                     from scripts import relay_bridge
@@ -345,6 +361,8 @@ def run(resolved, root=None):
                     from scripts.projection import open_projection
                     open_projection(phone_state.projection_url)
             process = stack.enter_context(simulator(command, state, log, echo=True))
+            if on_started:
+                on_started(phone_state, directory)
             status = process.wait()
     if status != 0:
         print(f'FlightGear exited with {"signal " + str(-status) if status < 0 else "status " + str(status)}. '
@@ -362,6 +380,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='action')
     sub.add_parser('list', help='List saved profiles')
+    operator = sub.add_parser('operator', help='Open the local operator app')
+    operator.add_argument('--port', type=int, default=0)
+    operator.add_argument('--no-browser', action='store_true')
     launch = sub.add_parser('run', help='Run a saved profile')
     launch.add_argument('profile')
     for field in ('installation', 'location', 'rendering', 'aircraft', 'binary', 'fg-root'):
@@ -371,19 +392,17 @@ def main(argv=None):
     launch.add_argument('--dry-run', action='store_true', help='Print resolved configuration without launching or checking installed assets')
     args = parser.parse_args(argv)
     try:
-        if args.action in (None, 'list'):
+        if args.action in (None, 'operator'):
+            from scripts.local_operator import serve
+            return serve(root=ROOT, port=getattr(args, 'port', 0),
+                         open_browser=not getattr(args, 'no_browser', False))
+        if args.action == 'list':
             profiles = sorted((ROOT / 'profiles').glob('*.toml'))
-            for index, path in enumerate(profiles, 1):
+            profiles += sorted((ROOT / 'profiles/local').glob('*.toml'))
+            for path in profiles:
                 profile = read(path)
-                print(f"{index}. {path.stem}: {profile['description']}" + (' [experimental]' if profile.get('warning') else ''))
-            if args.action == 'list':
-                return 0
-            if not sys.stdin.isatty():
-                parser.error('Specify run PROFILE when not using an interactive terminal')
-            choice = int(input('Choose a profile number: '))
-            if not 1 <= choice <= len(profiles):
-                raise ValueError('Profile number out of range')
-            args = launch.parse_args([profiles[choice - 1].stem])
+                print(f"{path.stem}: {profile['description']}" + (' [experimental]' if profile.get('warning') else ''))
+            return 0
         resolved = resolve(args.profile, overrides=vars(args))
         if args.projection:
             resolved['projection'] = True

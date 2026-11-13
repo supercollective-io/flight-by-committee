@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3f3ef"><meta name="referrer" content="no-referrer"><title>Flight operator · Supercollective</title>
+<link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#editor">Skip to flight settings</a>
+<header><a href="/" class="brand">Flight by Committee</a><span>Local operator</span><span id="connection" role="status">Connecting…</span></header>
+<main>
+<nav aria-label="Flight profiles"><div class="nav-heading"><h1>Profiles</h1><button id="new" type="button" disabled>New profile</button></div><p class="hint">Choose a starting point, then make it yours.</p><div id="profiles" aria-busy="true"></div></nav>
+<section id="editor" tabindex="-1" aria-labelledby="editor-title">
+<div class="editor-heading"><div><h2 id="editor-title">Choose a profile</h2><p id="source" class="hint">Saved settings will appear here.</p></div><button id="duplicate" type="button" disabled>Duplicate</button></div>
+<p id="feedback" role="status" aria-live="polite"></p>
+<form id="settings" autocomplete="off" hidden>
+<p id="warning" class="notice" hidden></p>
+<fieldset><legend>Profile</legend><div class="fields">
+<label>Profile name<input id="name" name="name" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" maxlength="80" autocomplete="off" spellcheck="false" aria-describedby="name-hint"><small id="name-hint">Letters, numbers, hyphens and underscores.</small></label>
+<label>Description<input id="description" name="description" required maxlength="300" autocomplete="off"></label>
+</div></fieldset>
+<fieldset><legend>Aircraft and controls</legend><div class="fields">
+<label>Aircraft<input id="aircraft" name="aircraft" list="aircraft-options" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" spellcheck="false"><datalist id="aircraft-options"><option value="747-400"><option value="c172p"><option value="ufo"></datalist></label>
+<label>Installation<select id="installation" name="installation"></select></label>
+<label>Rendering<select id="rendering" name="rendering"></select></label>
+<label>Controls<select id="input" name="input"><option value="">Simulator controls only</option></select></label>
+</div></fieldset>
+<fieldset><legend>Starting location</legend><div class="fields">
+<label class="wide">Location preset<select id="location" name="location"></select></label>
+<label>Position type<select id="position-type" name="position-type"><option value="coordinates">Coordinates</option><option value="airport">Airport code</option></select></label>
+<label>Start<select id="on-ground" name="on-ground"><option value="false">Airborne</option><option value="true">On the ground</option></select></label>
+<label data-coordinates>Latitude (°)<input id="latitude_deg" name="latitude_deg" type="number" min="-90" max="90" step="any"></label>
+<label data-coordinates>Longitude (°)<input id="longitude_deg" name="longitude_deg" type="number" min="-180" max="180" step="any"></label>
+<label id="airport-field" hidden>Airport code<input id="airport" name="airport" spellcheck="false" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*"></label>
+<label>Heading (°)<input id="heading_deg" name="heading_deg" type="number" min="0" max="360" step="any" required></label>
+<label id="altitude-field">Altitude above sea level (m)<input id="altitude_m" name="altitude_m" type="number" min="-500" max="100000" step="any"></label>
+</div><p class="hint">Coordinates select a starting point, not a runway or terrain clearance. New locations need an in-simulator check.</p></fieldset>
+<fieldset><legend>Flight conditions</legend><div class="fields">
+<label>Initial airspeed (m/s)<input id="speed_m_s" name="speed_m_s" type="number" min="0" max="1000" step="any" placeholder="Simulator default"></label>
+<label>Wind speed (m/s)<input id="wind_m_s" name="wind_m_s" type="number" min="0" max="150" step="any" placeholder="Rendering preset"></label>
+<label>Time of day<select id="time_of_day" name="time_of_day"><option value="">Rendering preset / simulator default</option><option>real</option><option>dawn</option><option>morning</option><option>noon</option><option>afternoon</option><option>dusk</option><option>evening</option><option>midnight</option></select></label>
+<label id="glideslope-field">Descent angle (°)<input id="glideslope_deg" name="glideslope_deg" type="number" min="-15" max="15" step="any" placeholder="Simulator default"></label>
+<label>Start paused<select id="frozen" name="frozen"><option value="">Simulator default</option><option value="true">Yes</option><option value="false">No</option></select></label>
+<label>Engines running<select id="engine_running" name="engine_running"><option value="">Aircraft default</option><option value="true">Yes</option><option value="false">No</option></select></label>
+</div></fieldset>
+<details><summary>Advanced aircraft settings</summary><p class="hint">Keep aircraft-specific initialisation and properties when adapting a working scenario.</p><div class="fields">
+<label>Initialisation<select id="initialisation" name="initialisation"><option value="">None</option></select></label>
+<label>Livery<input id="livery" name="livery" spellcheck="false" placeholder="Aircraft default"></label>
+<label class="wide">Initial properties (JSON)<textarea id="properties" name="properties" rows="7" spellcheck="false" aria-describedby="properties-hint"></textarea><small id="properties-hint">FlightGear property paths with numeric or boolean values.</small></label>
+</div></details>
+<div class="actions"><button id="check" type="button">Check setup</button><button id="save" type="button">Save local profile</button><button id="launch" class="primary" type="submit">Launch these settings</button></div>
+<p id="dirty" class="hint">Settings are unchanged.</p>
+<details id="effective-panel"><summary>Resolved launch settings</summary><p class="hint">Select Check setup to resolve the current draft. Simulator defaults are not measured values.</p><div id="effective"></div></details>
+</form>
+</section>
+<aside aria-labelledby="flight-title"><h2 id="flight-title">Current flight</h2><p id="phase" class="phase" role="status" aria-live="polite">Idle</p><p id="flight-name">No flight launched yet.</p><p id="flight-message">The operator stays open between flights.</p><div id="flight-links"></div><button id="stop" type="button" disabled>Stop flight</button><p class="hint">Pause and reset in FlightGear. Settings in the editor apply to your next launch.</p><details id="active-settings" hidden><summary>Launched settings</summary><pre id="active-values"></pre></details><details id="logs" hidden><summary>Local log files</summary><p class="hint">Open these files on this computer for diagnostics.</p><div id="log-paths"></div></details></aside>
+</main>
+<section id="mobile-flight" aria-label="Active flight" hidden><a id="mobile-phase" href="#flight-title">Current flight</a><button id="stop-mobile" type="button">Stop flight</button></section>
+</body></html>

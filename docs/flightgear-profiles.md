@@ -10,7 +10,7 @@ building and adding designs.
 Install [uv](https://docs.astral.sh/uv/), then run from the repository root:
 
 ```sh
-uv run fly                                       # Pick a profile
+uv run fly                                       # Open the local operator app
 uv run fly list
 uv run fly run amsterdam-explore
 uv run fly run amsterdam-explore --dry-run        # Preview without launching
@@ -48,8 +48,10 @@ are used. Keep each executable paired with its matching base data; add separatel
 installed aircraft to `aircraft_dirs`. Nightly does not include C172P.
 Paths accept `~`; relative paths are relative to the configuration file.
 
-To save a flight, copy a file in `profiles/`, rename it and edit its TOML.
-It appears automatically in the picker. For example:
+Use the [local operator app](local-operator.md) to inspect, duplicate, edit and
+save profiles. Custom profiles live in `profiles/local/` and are ignored by Git.
+You can also copy a file in `profiles/`, rename it and edit its TOML to create
+a shared profile. It appears automatically in the app. For example:
 
 ```toml
 description = "Explore Amsterdam at 900 m"
@@ -63,7 +65,8 @@ altitude_m = 900
 time_of_day = "noon"
 ```
 
-Locations live in `config/locations/*.toml`; rendering presets in
+A profile can reference `config/locations/*.toml` or include an inline
+`[location]` table with the same fields. Rendering presets in
 `config/rendering/*.fgfsrc` use one FlightGear option per line.
 CLI overrides apply to one run; simulator UI changes do not update saved profiles.
 Changing installation may also require a different rendering preset.
