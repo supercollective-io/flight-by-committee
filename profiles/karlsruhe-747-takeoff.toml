@@ -1,0 +1,45 @@
+description = "Take off in the Boeing 747-400 from Karlsruhe/Baden-Baden, runway 03"
+warning = "Experimental take-off: simulator startup, runway alignment and an operator take-off still need validation."
+installation = "nightly"
+location = "edsb-03-ground"
+rendering = "ws3-hdr"
+aircraft = "747-400"
+livery = "supercollective"
+input = "phone-takeoff"
+
+[flight]
+speed_m_s = 0
+wind_m_s = 0
+time_of_day = "noon"
+frozen = true
+engine_running = true
+
+[properties]
+# The pinned aircraft maps 0.333 to the 10-degree take-off detent.
+"/controls/flight/flaps" = 0.333
+"/controls/gear/gear-down" = true
+"/controls/gear/brake-parking" = 1.0
+"/controls/flight/aileron" = 0.0
+"/controls/flight/elevator" = 0.0
+"/controls/flight/rudder" = 0.0
+"/controls/flight/speedbrake" = 0.0
+# Idle engines; release the parking brake before applying take-off thrust.
+"/controls/engines/engine[0]/throttle" = 0.0
+"/controls/engines/engine[1]/throttle" = 0.0
+"/controls/engines/engine[2]/throttle" = 0.0
+"/controls/engines/engine[3]/throttle" = 0.0
+# Explicit 20,000 kg fuel, distributed symmetrically; native property uses kg.
+"/consumables/fuel/tank[0]/level-kg" = 0.0
+"/consumables/fuel/tank[1]/level-kg" = 5000.0
+"/consumables/fuel/tank[2]/level-kg" = 5000.0
+"/consumables/fuel/tank[3]/level-kg" = 5000.0
+"/consumables/fuel/tank[4]/level-kg" = 5000.0
+"/consumables/fuel/tank[5]/level-kg" = 0.0
+"/consumables/fuel/tank[6]/level-kg" = 0.0
+"/consumables/fuel/tank[7]/level-kg" = 0.0
+
+# Let the running engines pressurise hydraulics after unpausing.
+"/controls/hydraulic/engine-pump[0]" = true
+"/controls/hydraulic/engine-pump[1]" = true
+"/controls/hydraulic/engine-pump[2]" = true
+"/controls/hydraulic/engine-pump[3]" = true
