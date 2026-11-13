@@ -20,3 +20,4 @@ The project prefers open source. The venue, simulator and final control arrangem
 - [Runtime and networking](decisions/0004-runtime.md): proposed architecture and deployment.
 
 - [Hosted Flight controls](relay-operations.md): relay, outbound bridge, Coolify, recovery and LAN fallback.
+- [Body controls](body-controls.md): operator-selected camera input, bent-elbow wings, torso lean and voluntary rest.

@@ -11,8 +11,9 @@
 <div id="data" hidden><svg viewBox="0 0 240 200" aria-label="Pitch and roll commands; dots are participants and ring is the collective">
 <path d="M120 25V175M30 100H210" stroke="#bfc1b8"/><g fill="#555650" font-size="11" text-anchor="middle"><text x="120" y="14">NOSE DOWN</text><text x="120" y="195">NOSE UP</text><text x="14" y="104">L</text><text x="226" y="104">R</text></g><g id="votes"></g></svg>
 <div class="label">Throttle <output id="throttle-value"></output></div><div class="track"><div id="throttle" class="fill"></div></div>
-<div class="label">Rudder <output id="rudder"></output></div>
+<div id="auxiliary-controls"><div class="label">Rudder <output id="rudder"></output></div>
 <div class="label">Brakes <output id="brake-value"></output></div><div class="track"><div id="brake" class="fill"></div></div>
+</div>
 </div></aside>
 <script>
 'use strict';
@@ -21,6 +22,7 @@ let lastReply=null, problem=null, retryDelay=100, pollingStopped=false;
 function fail(message){problem=message;lost(message);}
 function lost(message){$('data').hidden=true;$('votes').innerHTML='';$('count').textContent='—';$('status').hidden=false;$('status').textContent=message;}
 function render(s){
+ $('auxiliary-controls').hidden=s.mode==='body';
  if(s.relay===false)return lost('Relay unavailable · flight continues');
  if(!s.simulator)return lost('FlightGear unavailable');
  if(!s.ready)return lost('Waiting for approach readiness');

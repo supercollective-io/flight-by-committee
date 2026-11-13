@@ -103,6 +103,39 @@ def resolve(profile_name, *, root=None, overrides=None):
         from scripts import phone_control
         input_name = name(profile['input'])
         input_config = phone_control.validate(read(root / 'config/inputs' / f'{input_name}.toml'))
+    mode = overrides.get('input_mode') or ('body' if input_config and 'body' in input_config else 'phone')
+    if mode not in ('phone', 'body'):
+        raise ValueError('Unknown input mode')
+    body_options = ('pose_model', 'camera', 'max_poses', 'camera_elevation_deg', 'camera_preview')
+    if mode != 'body' and any(overrides.get(key) is not None for key in body_options):
+        raise ValueError('Camera options require --input-mode body')
+    if mode == 'body':
+        if input_config is None:
+            raise ValueError('Body controls require a profile with an aircraft input mapping')
+        defaults = input_config.get('body', {})
+        model = overrides.get('pose_model') or defaults.get('model')
+        if not model:
+            raise ValueError('Body controls require --pose-model PATH; see docs/body-controls.md')
+        model = Path(model).expanduser()
+        if not overrides.get('pose_model') and not model.is_absolute():
+            model = root / model
+        camera = overrides.get('camera') if overrides.get('camera') is not None else defaults.get('camera', 0)
+        max_poses = overrides.get('max_poses') if overrides.get('max_poses') is not None else defaults.get('max_poses', 12)
+        elevation = overrides.get('camera_elevation_deg') if overrides.get('camera_elevation_deg') is not None else defaults.get('camera_elevation_deg', 0)
+        preview = overrides.get('camera_preview') if overrides.get('camera_preview') is not None else defaults.get('preview', False)
+        boolean(preview, 'camera preview')
+        if type(camera) is not int or not 0 <= camera <= 100:
+            raise ValueError('Camera must be a device index from 0 to 100')
+        if type(max_poses) is not int or not 1 <= max_poses <= 100:
+            raise ValueError('max-poses must be an integer from 1 to 100')
+        number(elevation, 0, 75, 'camera elevation in degrees')
+        input_config['body'] = dict(model=str(model.resolve()),
+                                    camera=camera, max_poses=max_poses, camera_elevation_deg=elevation,
+                                    preview=preview)
+        input_config['owned_axes'] = ['roll', 'pitch']
+        input_config['brake_release_paths'] = []
+    elif input_config:
+        input_config.pop('body', None)
     if 'livery' in profile:
         build_livery.livery_directory(root, profile['aircraft'], profile['livery'])
     install = installation(profile['installation'], root, overrides.get('binary'), overrides.get('fg_root'))
@@ -335,7 +368,10 @@ def run(resolved, root=None):
         from contextlib import ExitStack
         with ExitStack() as stack:
             if input_config:
-                if os.environ.get('FLIGHT_RELAY_URL'):
+                if 'body' in input_config:
+                    from scripts import body_control
+                    controller = body_control
+                elif os.environ.get('FLIGHT_RELAY_URL'):
                     from scripts import relay_bridge
                     controller = relay_bridge
                 else:
@@ -367,6 +403,12 @@ def main(argv=None):
     for field in ('installation', 'location', 'rendering', 'aircraft', 'binary', 'fg-root'):
         launch.add_argument('--' + field)
     launch.add_argument('--altitude-m', type=float)
+    launch.add_argument('--input-mode', choices=('phone', 'body'), help='Override the profile input source; body mode stays local even with relay environment variables')
+    launch.add_argument('--pose-model', help='Local MediaPipe Pose Landmarker .task model (body mode)')
+    launch.add_argument('--camera', type=int, help='Local capture device index; default 0 (body mode)')
+    launch.add_argument('--max-poses', type=int, help='Maximum detected poses; default 12 (body mode)')
+    launch.add_argument('--camera-elevation-deg', type=float, help='Camera downward tilt in degrees; default 0 (body mode)')
+    launch.add_argument('--camera-preview', action=argparse.BooleanOptionalAction, default=None, help='Override the local skeleton preview; q stops camera input (body mode)')
     launch.add_argument('--projection', action='store_true', help='Open OBS and the overlay preview; show extra-view setup guidance')
     launch.add_argument('--dry-run', action='store_true', help='Print resolved configuration without launching or checking installed assets')
     args = parser.parse_args(argv)

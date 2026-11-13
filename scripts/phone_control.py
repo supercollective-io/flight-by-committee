@@ -20,8 +20,13 @@ PATH = re.compile(r'/controls/(?:[a-zA-Z0-9_-]+(?:\[\d+\])?/)*[a-zA-Z0-9_-]+(?:\
 
 def validate(config):
     from scripts.flightgear import keys, number
-    keys(config, ('layout', 'port', 'expiry_s', 'ready_property', 'controls', 'brake_release_paths'),
+    keys(config, ('layout', 'port', 'expiry_s', 'ready_property', 'controls', 'brake_release_paths', 'body'),
          ('layout', 'port', 'expiry_s', 'ready_property', 'controls'), 'input')
+    if 'body' in config:
+        keys(config['body'], ('model', 'camera', 'max_poses', 'camera_elevation_deg', 'preview'),
+             ('model',), 'body input')
+        if not isinstance(config['body']['model'], str) or not config['body']['model'].strip():
+            raise ValueError('Body model must be a non-empty path')
     if config['layout'] != 'landing':
         raise ValueError('Unknown phone layout')
     if type(config['port']) is not int:
@@ -57,7 +62,7 @@ def watchdog_xml(config, destination):
     script = '''
 var base = '/sim/committee/phone/';
 var mapping = MAPPINGS;
-var momentary = ['roll', 'pitch', 'rudder', 'brake'];
+var momentary = MOMENTARY;
 var generation = getprop(base ~ 'generation');
 if (generation == nil) generation = 0;
 setprop(base ~ 'generation', generation + 1);
@@ -96,7 +101,7 @@ var tick = func {
       foreach (var path; mapping[axis].paths) setprop(path, value * mapping[axis].scale);
     }
     var throttle = getprop(base ~ 'throttle');
-    if (throttle != nil and throttle >= 0) {
+    if (THROTTLE_ENABLED and throttle != nil and throttle >= 0) {
       foreach (var path; mapping.throttle.paths) setprop(path, throttle);
     }
     setprop(base ~ 'connected', 1);
@@ -107,7 +112,7 @@ var tick = func {
   }
 };
 setlistener('/sim/signals/frame', tick);
-'''.replace('MAPPINGS', mappings).replace('READY', ready).replace('EXPIRY', str(config['expiry_s'])).replace('RELEASE_PATHS', json.dumps(config.get('brake_release_paths', [])))
+'''.replace('MAPPINGS', mappings).replace('MOMENTARY', json.dumps(config.get('owned_axes', ['roll', 'pitch', 'rudder', 'brake']))).replace('THROTTLE_ENABLED', '0' if 'body' in config else '1').replace('READY', ready).replace('EXPIRY', str(config['expiry_s'])).replace('RELEASE_PATHS', json.dumps(config.get('brake_release_paths', [])))
     root = ET.Element('PropertyList')
     sim = ET.SubElement(root, 'sim')
     node = ET.SubElement(ET.SubElement(sim, 'committee'), 'phone')
@@ -229,7 +234,7 @@ def bridge(state, port, stop):
                 status = ('FlightGear unavailable' if not state.connected else
                           'Waiting for approach readiness' if not state.ready else
                           f'{len(state.participants())} participants — aircraft control active' if state.fresh() else
-                          'Phone disconnected — flight continues')
+                          'No fresh input — flight continues')
             if status != last_status:
                 print(status, flush=True)
                 last_status = status
