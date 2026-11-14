@@ -11,6 +11,10 @@ from scripts import flightgear
 
 class LiveryTests(unittest.TestCase):
     def setUp(self):
+        # Damage installation is tested separately; these fixtures isolate livery handling.
+        damage = patch('scripts.crash_stress.install')
+        damage.start()
+        self.addCleanup(damage.stop)
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name).resolve()
@@ -103,9 +107,9 @@ class LiveryTests(unittest.TestCase):
             self.assertIn(f'--prop:/sim/model/livery/{property}={value}', resolved['command'])
         self.assertIn(f'--allow-nasal-read={livery.ROOT / "assets/liveries/747-400"}', resolved['command'])
 
-    def test_profiles_without_livery_need_no_assets(self):
+    def test_747_without_livery_needs_no_livery_assets(self):
         self.resolved['profile'].pop('livery')
         shutil.rmtree(self.assets)
         livery.prepare(self.resolved, root=self.root)
         self.assertEqual(list(self.destination.iterdir()), [])
-        self.assertFalse(self.overlay.exists())
+        self.assertTrue(self.overlay.exists())

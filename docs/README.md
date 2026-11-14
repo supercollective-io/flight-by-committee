@@ -6,6 +6,8 @@ The project prefers open source. The venue, simulator and final control arrangem
 
 ## Start here
 
+- [Local operator app](local-operator.md): run `uv run fly` to choose, edit, save and launch profiles.
+
 - [747-400 landing at Karlsruhe](karlsruhe-747.md): launch and validate the target Nightly/HDR/WS3 scenario.
 
 - [747-400 livery workspace](../assets/liveries/747-400/README.md): edit the aircraft artwork and preview it in FlightGear.

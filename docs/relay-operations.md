@@ -8,6 +8,42 @@ and `/healthz` returned 200, the browser rendered the invitation instructions,
 and anonymous `/status`, `/projection` and `/relay.js` requests returned 403.
 Authenticated controls, simulator response and physical rehearsal remain unverified.
 
+## One-command local launch
+
+On the simulator computer, make the private configuration once, from the
+repository root:
+
+```sh
+(umask 077; cp -n .env.example .env)
+chmod 600 .env
+```
+
+Edit `.env` in your editor and fill in `FLIGHT_BRIDGE_KEY` with the existing
+deployed bridge key. Leave `FLIGHT_RELAY_URL=https://fly.supercollective.io`.
+Do not use the participant invitation key. This file is ignored by Git and
+excluded from Docker builds; keep it on the simulator computer.
+
+For each flight, run from the repository root:
+
+```sh
+uv run --env-file .env fly run karlsruhe-747-landing
+```
+
+uv reads the environment file and the existing launcher starts FlightGear and
+the phone-control bridge together. `karlsruhe-747-landing` starts a paused
+landing approach about 12 km from the airport, not a runway take-off.
+Wait for `Relay connected` and for `Waiting for approach readiness` to clear,
+then open the printed local monitor URL. Keep the terminal open.
+
+Existing shell variables override `.env`; remove stale exports if you
+want the file's values. For a deliberate LAN launch, omit `--env-file .env`
+and unset any exported `FLIGHT_RELAY_URL`, as shown in the LAN fallback below.
+Append `--projection` to open the projection helpers. uv only reads `.env`
+when requested; no wrapper or additional configuration-loading dependency is needed.
+
+Connection loss releases momentary controls but retains throttle and does not
+pause FlightGear. Keep local pause within reach.
+
 ## Operating contract
 
 A single Python/aiohttp process owns one flight session. It serves the existing
@@ -80,11 +116,10 @@ running simulator.
 4. In Coolify, deploy the Flight application from the same release commit.
    Keep the existing participant key, bridge key, origin and port unchanged.
    Confirm Coolify reports the same commit as the local checkout.
-5. In the same private shell that holds the existing `FLIGHT_BRIDGE_KEY`, set
-   `FLIGHT_RELAY_URL=https://fly.supercollective.io` and run
-   `uv run fly run karlsruhe-747-landing`. This starts the saved approach and
-   the bridge from the matching revision. Do not put either key in a command
-   argument or print it.
+5. With `.env` configured as above, run
+   `uv run --env-file .env fly run karlsruhe-747-landing`. This starts the saved
+   approach and the bridge from the matching revision. Do not put either key
+   in a command argument or print it.
 6. Wait for the terminal to report `Relay connected` and for `Waiting for approach
    readiness` to clear. Open the newly printed loopback monitor URL on that
    computer. Share the public participant invitation only after the approach

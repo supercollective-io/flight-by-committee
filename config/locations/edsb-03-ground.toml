@@ -1,0 +1,7 @@
+# Nightly apt.dat.ws3 runway geometry recorded in docs/karlsruhe-747.md.
+# 100 m along runway 03 from its physical end, on the centreline.
+# Explicit coordinates avoid the Nightly airport-dynamics lookup failure.
+latitude_deg = 48.76860879
+longitude_deg = 8.07044418
+heading_deg = 31.661108
+on_ground = true

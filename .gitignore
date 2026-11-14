@@ -1,3 +1,8 @@
+# Private environment configuration
+.env
+.env.*
+!.env.example
+
 # macOS metadata
 .DS_Store
 ._*
@@ -21,3 +26,6 @@ __pycache__/
 
 # Downloaded local vision models; see docs/body-controls.md.
 /assets/models/*.task
+
+# Operator-created profiles stay on this computer
+/profiles/local/

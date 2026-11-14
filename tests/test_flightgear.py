@@ -31,6 +31,8 @@ class ProfileTests(unittest.TestCase):
         for path in (self.root / 'profiles').glob('*.toml'):
             result = self.resolve(path.stem)
             self.assertIn('--no-default-config', result['command'])
+            self.assertIn('--enable-sound', result['command'])
+            self.assertIn('--prop:/sim/sound/switch=true', result['command'])
         self.assertFalse((self.root / 'test-results').exists())
 
     def test_amsterdam_retains_scenery_and_airborne_workaround(self):
@@ -51,6 +53,16 @@ class ProfileTests(unittest.TestCase):
             self.assertIn(option, command)
         self.assertFalse(any(arg.startswith('--metar=') for arg in command))
         self.assertIn('Experimental', resolved['profile']['warning'])
+
+    def test_takeoff_phone_controls_wait_for_ground_start_not_approach(self):
+        resolved = self.resolve('karlsruhe-747-takeoff')
+        config = resolved['input_config']
+        self.assertEqual(resolved['profile']['input'], 'phone-takeoff')
+        self.assertEqual(config['ready_property'], '/sim/signals/fdm-initialized')
+        self.assertIn('/controls/gear/brake-parking', config['brake_release_paths'])
+        self.assertEqual(len(config['controls']['throttle']['paths']), 4)
+        self.assertIn('--on-ground', resolved['command'])
+        self.assertNotIn('initialisation', resolved['profile'])
 
     def test_overrides_replace_instead_of_duplicate(self):
         result = self.resolve(aircraft='c172p', installation='stable', altitude_m=1200)
@@ -102,21 +114,18 @@ class ProfileTests(unittest.TestCase):
         plane.touch()
         fg.validate_assets(result)
 
-    def test_cli_dry_run_and_noninteractive_selection(self):
+    def test_cli_dry_run(self):
         with patch.object(fg, 'ROOT', self.root), contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(fg.main(['run', 'schiphol-inspect', '--dry-run']), 0)
             self.assertIn('--on-ground', out.getvalue())
-            with patch('sys.stdin.isatty', return_value=False), contextlib.redirect_stderr(io.StringIO()):
-                with self.assertRaises(SystemExit) as error:
-                    fg.main([])
-                self.assertEqual(error.exception.code, 2)
 
-    def test_interactive_picker(self):
-        with patch.object(fg, 'ROOT', self.root), patch('sys.stdin.isatty', return_value=True), \
-                patch('builtins.input', return_value='1'), patch.object(fg, 'run', return_value=0) as run, \
-                contextlib.redirect_stdout(io.StringIO()):
+    def test_default_launch_opens_operator_without_terminal_input(self):
+        with patch.object(fg, 'ROOT', self.root), patch('scripts.local_operator.serve', return_value=0) as serve:
             self.assertEqual(fg.main([]), 0)
-            self.assertEqual(run.call_args.args[0]['profile_name'], 'amsterdam-explore')
+            serve.assert_called_once_with(root=self.root, port=0, open_browser=True)
+            serve.reset_mock()
+            self.assertEqual(fg.main(['operator', '--no-browser', '--port', '8765']), 0)
+            serve.assert_called_once_with(root=self.root, port=8765, open_browser=False)
 
     def test_feasibility_rejects_edited_scenario(self):
         resolved = self.resolve('feasibility')
