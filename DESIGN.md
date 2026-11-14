@@ -61,3 +61,24 @@ and `preview/studio.css`; no runtime dependency on Tools is introduced.
 Browser flight replies were synthetic, with no simulator control, paid calls or
 deployment. Keyboard tests and viewport emulation do not establish physical-device
 or venue readiness. The local livery preview is not a live FlightGear lighting test.
+
+
+## Hybrid controls · 13 November 2026
+
+Preserve the existing phone and projection surfaces. Hybrid status names camera
+and phone contribution counts, and phone participants see a short instruction to
+choose one method at a time. The phone ring is the combined command. Projection
+adds square camera markers alongside round phone markers; hollow squares mark an
+unreadable axis without treating it as a neutral vote. Source-loss feedback keeps
+the remaining contribution display visible. Expired hosted feedback is labelled
+as updating rather than displaying the phone-only mean.
+
+Synthetic Chromium review at 390 px and 1440 px covered phone participation,
+projection, source counts and continued camera display after phone disconnection.
+Evidence is in `test-results/hybrid/`. The current Vercel guidelines were read from
+[their source](https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md)
+on 13 November 2026; the changed status text, semantic controls and non-colour
+marker distinction were reviewed. Sentence case follows this project's direction.
+The Impeccable context loader could not create its engine cache; existing design
+context and the clarify/craft guidance were read directly. This was synthetic
+browser verification, not a live camera/phone rehearsal or deployment.

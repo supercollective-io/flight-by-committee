@@ -13,6 +13,7 @@
 
 </style>
 <div id="status" role="status" aria-live="polite">Connecting…</div>
+<p id="hybrid-help" hidden>Choose body or phone, one method at a time. Lower your arms when using your phone. Stop controlling here before using your body.</p>
 <div id="role-choice"><button id="join-controls">Join flight controls</button><button id="observe" hidden>Stop controlling</button></div>
 <div id="monitor"><div id="join"><img id="qr" alt="Scan to join the aircraft controls" width="280" height="280" hidden><p><a id="join-link"></a></p></div><h1>Flight monitor</h1><p>Pause, resume and reset in FlightGear. </p><svg id="distribution" viewBox="0 0 200 200" aria-label="Individual pitch and roll commands"><path d="M100 0V200M0 100H200" stroke="#bfc1b8"/><g id="votes"></g></svg></div>
 <div class="controls disabled" id="controls">
@@ -46,7 +47,7 @@ const pointers=new Map(), padKeys=new Set();
 function draw(){ $('dot').style.left=(50+values.roll*45)+'%';$('dot').style.top=(50+values.pitch*45)+'%'; }
 function release(){releasePending=false;values.roll=values.pitch=values.rudder=values.brake=0;values.throttle=null;pointers.clear();padKeys.clear();document.querySelectorAll('.held').forEach(x=>x.classList.remove('held'));draw();}
 function availability(active){enabled=active;$('controls').classList.toggle('disabled',!active);$('throttle').disabled=!active;document.querySelectorAll('button:not(#join-controls):not(#observe)').forEach(x=>x.disabled=!active);}
-function lost(text){$('group-dot').hidden=true;$('group-power-marker').hidden=true;availability(false);challenge=null;release();$('status').textContent=text;$('status').className='';}
+function lost(text){$('hybrid-help').hidden=true;$('group-dot').hidden=true;$('group-power-marker').hidden=true;availability(false);challenge=null;release();$('status').textContent=text;$('status').className='';}
 function padMove(e){if(!enabled||pointers.get('pad')!==e.pointerId)return;const r=$('pad').getBoundingClientRect();values.roll=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/(r.width*.45)));values.pitch=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/(r.height*.45)));draw();}
 $('pad').addEventListener('pointerdown',e=>{if(!enabled||pointers.has('pad'))return;e.preventDefault();pointers.set('pad',e.pointerId);$('pad').setPointerCapture(e.pointerId);padMove(e);});
 $('pad').addEventListener('pointermove',padMove);
@@ -81,13 +82,17 @@ async function exchange(){
   const response=await (window.flightRequest||fetch)((observing?'/status':'/input')+'?key='+encodeURIComponent(key),observing?{signal:controller.signal}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session,challenge,release_brakes:releasePending,controls:challenge?{...values}:null}),signal:controller.signal});
   if(!response.ok)throw Error('Connection refused');
   const s=await response.json();if(sentRole!==roleVersion)return;lastReply=performance.now();
+  $('hybrid-help').hidden=s.mode!=='hybrid'||monitor;
   if(s.relay===false)lost('Relay unavailable — flight continues');
   else if(!s.simulator)lost('FlightGear unavailable');
   else if(!s.ready)lost('Waiting for approach readiness');
   else{
    if(s.resync)release();
    if(!observing){challenge=s.challenge;availability(true);}else availability(false);
-   $('status').textContent=s.active?`${observing?'Watching':'Controlling'} · ${s.count} active`:observing?'Observing · nobody active — flight continues':'Connected · ready';
+   $('status').textContent=s.active?`${observing?'Watching':'Controlling'} · ${s.sources?`${s.sources.camera} camera + ${s.sources.phone} phone contributions`:`${s.count} active`}`:observing?'Observing · nobody active — flight continues':'Connected · ready';
+   if(s.feedback_pending)$('status').textContent+=' · updating combined controls';
+   if(s.mode==='hybrid'&&s.camera_available===false)$('status').textContent+=' · camera unavailable';
+   if(s.mode==='hybrid'&&s.phone_available===false)$('status').textContent+=' · phones disconnected';
    $('status').className=s.active?'live':'';
   }
   if(sentReleaseVersion===releaseVersion && !s.resync) releasePending=false;

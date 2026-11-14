@@ -103,13 +103,13 @@ def resolve(profile_name, *, root=None, overrides=None):
         from scripts import phone_control
         input_name = name(profile['input'])
         input_config = phone_control.validate(read(root / 'config/inputs' / f'{input_name}.toml'))
-    mode = overrides.get('input_mode') or ('body' if input_config and 'body' in input_config else 'phone')
-    if mode not in ('phone', 'body'):
+    mode = overrides.get('input_mode') or (input_config.get('mode', 'body' if 'body' in input_config else 'phone') if input_config else 'phone')
+    if mode not in ('phone', 'body', 'hybrid'):
         raise ValueError('Unknown input mode')
     body_options = ('pose_model', 'camera', 'max_poses', 'camera_elevation_deg', 'camera_preview')
-    if mode != 'body' and any(overrides.get(key) is not None for key in body_options):
-        raise ValueError('Camera options require --input-mode body')
-    if mode == 'body':
+    if mode == 'phone' and any(overrides.get(key) is not None for key in body_options):
+        raise ValueError('Camera options require --input-mode body or hybrid')
+    if mode in ('body', 'hybrid'):
         if input_config is None:
             raise ValueError('Body controls require a profile with an aircraft input mapping')
         defaults = input_config.get('body', {})
@@ -132,10 +132,14 @@ def resolve(profile_name, *, root=None, overrides=None):
         input_config['body'] = dict(model=str(model.resolve()),
                                     camera=camera, max_poses=max_poses, camera_elevation_deg=elevation,
                                     preview=preview)
-        input_config['owned_axes'] = ['roll', 'pitch']
-        input_config['brake_release_paths'] = []
+        if mode == 'body':
+            input_config['owned_axes'] = ['roll', 'pitch']
+            input_config['brake_release_paths'] = []
+            input_config['throttle_enabled'] = False
     elif input_config:
         input_config.pop('body', None)
+    if input_config:
+        input_config['mode'] = mode
     if 'livery' in profile:
         build_livery.livery_directory(root, profile['aircraft'], profile['livery'])
     install = installation(profile['installation'], root, overrides.get('binary'), overrides.get('fg_root'))
@@ -368,7 +372,10 @@ def run(resolved, root=None):
         from contextlib import ExitStack
         with ExitStack() as stack:
             if input_config:
-                if 'body' in input_config:
+                if input_config.get('mode') == 'hybrid':
+                    from scripts import hybrid_control
+                    controller = hybrid_control
+                elif 'body' in input_config:
                     from scripts import body_control
                     controller = body_control
                 elif os.environ.get('FLIGHT_RELAY_URL'):
@@ -403,12 +410,12 @@ def main(argv=None):
     for field in ('installation', 'location', 'rendering', 'aircraft', 'binary', 'fg-root'):
         launch.add_argument('--' + field)
     launch.add_argument('--altitude-m', type=float)
-    launch.add_argument('--input-mode', choices=('phone', 'body'), help='Override the profile input source; body mode stays local even with relay environment variables')
-    launch.add_argument('--pose-model', help='Local MediaPipe Pose Landmarker .task model (body mode)')
-    launch.add_argument('--camera', type=int, help='Local capture device index; default 0 (body mode)')
-    launch.add_argument('--max-poses', type=int, help='Maximum detected poses; default 12 (body mode)')
-    launch.add_argument('--camera-elevation-deg', type=float, help='Camera downward tilt in degrees; default 0 (body mode)')
-    launch.add_argument('--camera-preview', action=argparse.BooleanOptionalAction, default=None, help='Override the local skeleton preview; q stops camera input (body mode)')
+    launch.add_argument('--input-mode', choices=('phone', 'body', 'hybrid'), help='Override the profile input source; body mode stays local even with relay environment variables')
+    launch.add_argument('--pose-model', help='Local MediaPipe Pose Landmarker .task model (body or hybrid mode)')
+    launch.add_argument('--camera', type=int, help='Local capture device index; default 0 (body or hybrid mode)')
+    launch.add_argument('--max-poses', type=int, help='Maximum detected poses; default 12 (body or hybrid mode)')
+    launch.add_argument('--camera-elevation-deg', type=float, help='Camera downward tilt in degrees; default 0 (body or hybrid mode)')
+    launch.add_argument('--camera-preview', action=argparse.BooleanOptionalAction, default=None, help='Override the local skeleton preview; q stops camera input (body or hybrid mode)')
     launch.add_argument('--projection', action='store_true', help='Open OBS and the overlay preview; show extra-view setup guidance')
     launch.add_argument('--dry-run', action='store_true', help='Print resolved configuration without launching or checking installed assets')
     args = parser.parse_args(argv)

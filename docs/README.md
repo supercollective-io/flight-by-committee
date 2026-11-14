@@ -21,3 +21,4 @@ The project prefers open source. The venue, simulator and final control arrangem
 
 - [Hosted Flight controls](relay-operations.md): relay, outbound bridge, Coolify, recovery and LAN fallback.
 - [Body controls](body-controls.md): operator-selected camera input, bent-elbow wings, torso lean and voluntary rest.
+- [Hybrid controls](hybrid-controls.md): equal-weight camera and phone contributions in one flight.

@@ -130,4 +130,13 @@ console.log('Keyboard steering and braking release safely.');
   assert.equal(run('enabled'),false,'an old input response must not restore control after observing');
   assert.equal(run('challenge'),null);
   console.log('Observer transition rejects an outstanding control response.');
+  context.fetch=async()=>({ok:true,json:async()=>({simulator:true,ready:true,active:true,
+    count:10,mode:'hybrid',sources:{camera:8,phone:2},camera_available:true,
+    throttle:.45,collective:{roll:.6,pitch:-1,rudder:0,brake:0,throttle:.5},inputs:[]})});
+  await run('exchange()');
+  assert.equal(element('hybrid-help').hidden,false);
+  assert.equal(element('status').textContent,'Watching · 8 camera + 2 phone contributions');
+  assert.equal(element('group-dot').style.left,'77%');
+  assert.equal(run('enabled'),false);
+  console.log('Hybrid feedback shows combined commands and source counts.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

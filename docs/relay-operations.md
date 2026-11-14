@@ -211,6 +211,26 @@ Before releasing a performance version:
 6. Measure phone-to-visible-aircraft response under actual crowd/network load;
    use p95 below 250 ms as the initial target, then assess with people.
 
+## Hybrid camera and phone input
+
+[Hybrid controls](hybrid-controls.md) combines local camera poses with the relay's
+phone aggregate through one local simulator writer. Deploy the hybrid-capable
+relay before running the new bridge: older relays reject the additional telemetry.
+The updated relay retains the original phone-only protocol. Preparation and local
+tests do not deploy this change.
+
+Hybrid bridge telemetry adds bounded, display-only `feedback`: relay epoch and
+sequence, remaining validity, combined controls, anonymous command dots, source
+counts and per-axis counts. The relay acknowledges hybrid support and still
+returns only phone contributions to the bridge. It never feeds combined feedback
+back into aggregation. The relay discounts feedback validity by the poll interval,
+clears it on reset/reconnect, and hides expired combined results. Bridge WebSocket
+frames allow up to 65,536 bytes for these bounded displays; participant frames
+retain their 4,096-byte limit. Camera images and landmarks remain local.
+
+Hosted local routes remain read-only, including in hybrid mode. Relay loss removes
+phone votes without cancelling camera votes. Reset still clears both input sources.
+
 ## LAN fallback
 
 The original route remains available and tested. Stop the hosted launch, then:

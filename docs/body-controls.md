@@ -10,6 +10,9 @@ not every person in the room. Camera recognition, comfort over the full
 2.5-minute flight and the mapping need an in-person trial. Automated geometry
 tests do not establish recognition quality or venue readiness.
 
+To offer camera and phones together, use [Hybrid controls](hybrid-controls.md).
+The instructions below describe camera-only mode.
+
 ## Install and launch
 
 Install the optional dependencies on the show computer:

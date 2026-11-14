@@ -21,6 +21,7 @@ class BodyState(phone.State):
         super().__init__(config, clock)
         self.inputs = []
         self.received = -math.inf
+        self.available = False
         self.invalidated = clock()
         self.command = dict(roll=0.0, pitch=0.0)
 
@@ -100,6 +101,8 @@ def read_camera(stream, state, started, finished):
                 raise ValueError('Oversized camera frame')
             frame = json.loads(line)
             if frame == {'kind': 'ready'} and not started.is_set():
+                with state.lock:
+                    state.available = True
                 started.set()
                 continue
             if not started.is_set():
@@ -111,6 +114,7 @@ def read_camera(stream, state, started, finished):
     finally:
         with state.lock:
             state.invalidate()
+            state.available = False
         finished.set()
         started.set()  # Wake startup waiter on failure too.
 
@@ -123,7 +127,8 @@ def observer_handler(state, secret):
 
 
 @contextmanager
-def running(config, simulator_port):
+def camera_running(config, state):
+    """Own just the camera worker; loss invalidates only its contributions."""
     settings = config['body']
     model = Path(settings['model']).expanduser()
     if not model.is_file():
@@ -133,31 +138,15 @@ def running(config, simulator_port):
                '--camera-elevation-deg', str(settings['camera_elevation_deg'])]
     if settings['preview']:
         command.append('--preview')
-    state = BodyState(config)
-    started, finished, stop = threading.Event(), threading.Event(), threading.Event()
+    started, finished = threading.Event(), threading.Event()
     process = subprocess.Popen(command, stdout=subprocess.PIPE, text=True, bufsize=1)
     reader = threading.Thread(target=read_camera, args=(process.stdout, state, started, finished), daemon=True)
-    server = None
-    threads = []
     reader.start()
     try:
         if not started.wait(30) or finished.is_set() or process.poll() is not None:
             raise ValueError('Camera could not start. Check camera permissions, device index, body dependencies and pose model; see docs/body-controls.md.')
-        secret = secrets.token_urlsafe(24)
-        server = phone.ThreadingHTTPServer(('127.0.0.1', config['port']), observer_handler(state, secret))
-        server.daemon_threads = True
-        state.projection_url = f'http://127.0.0.1:{server.server_port}/projection?key={secret}'
-        threads = [threading.Thread(target=server.serve_forever, daemon=True),
-                   threading.Thread(target=phone.bridge, args=(state, simulator_port, stop), daemon=True)]
-        for thread in threads:
-            thread.start()
-        print('Body controls: spread wings to contribute; bent elbows are welcome. Lower arms to rest.\n'
-              'Lean forwards for nose down, backwards for nose up. No participant calibration.\n'
-              'Only pitch and roll are camera-controlled. Manage throttle, rudder and brakes in FlightGear.\n'
-              f'Local projection: {state.projection_url}', flush=True)
         yield state
     finally:
-        stop.set()
         if process.poll() is None:
             process.terminate()
             try:
@@ -167,9 +156,30 @@ def running(config, simulator_port):
                 process.wait(timeout=3)
         reader.join(timeout=3)
         process.stdout.close()
-        if server is not None:
-            if threads:
-                server.shutdown()
-            server.server_close()
+
+
+@contextmanager
+def running(config, simulator_port):
+    state = BodyState(config)
+    with camera_running(config, state):
+        secret = secrets.token_urlsafe(24)
+        server = phone.ThreadingHTTPServer(('127.0.0.1', config['port']), observer_handler(state, secret))
+        server.daemon_threads = True
+        state.projection_url = f'http://127.0.0.1:{server.server_port}/projection?key={secret}'
+        stop = threading.Event()
+        threads = [threading.Thread(target=server.serve_forever, daemon=True),
+                   threading.Thread(target=phone.bridge, args=(state, simulator_port, stop), daemon=True)]
         for thread in threads:
-            thread.join(timeout=3)
+            thread.start()
+        print('Body controls: spread wings to contribute; bent elbows are welcome. Lower arms to rest.\n'
+              'Lean forwards for nose down, backwards for nose up. No participant calibration.\n'
+              'Only pitch and roll are camera-controlled. Manage throttle, rudder and brakes in FlightGear.\n'
+              f'Local projection: {state.projection_url}', flush=True)
+        try:
+            yield state
+        finally:
+            stop.set()
+            server.shutdown()
+            server.server_close()
+            for thread in threads:
+                thread.join(timeout=3)

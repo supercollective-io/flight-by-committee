@@ -1,0 +1,38 @@
+# Camera and phone contributions share the same aircraft mapping.
+mode = "hybrid"
+layout = "landing"
+# FlightGear keeps its built-in web interface on localhost:8080.
+port = 8081
+expiry_s = 1.0
+ready_property = "/sim/committee/approach-ready"
+# Explicit release also clears the model's independent parking/automatic brakes.
+brake_release_paths = ["/controls/gear/brake-left", "/controls/gear/brake-right", "/controls/gear/copilot-brake-left", "/controls/gear/copilot-brake-right", "/controls/gear/brake-parking", "/autopilot/autobrake/step"]
+
+[controls.roll]
+paths = ["/controls/flight/aileron"]
+scale = 0.6
+
+[controls.pitch]
+paths = ["/controls/flight/elevator"]
+# Positive FlightGear elevator lowers the nose; dragging down should raise it.
+scale = -0.6
+
+[controls.rudder]
+paths = ["/controls/flight/rudder"]
+scale = 1.0
+
+[controls.brake]
+paths = ["/controls/gear/brake-left", "/controls/gear/brake-right"]
+scale = 1.0
+
+[controls.throttle]
+paths = ["/controls/engines/engine[0]/throttle", "/controls/engines/engine[1]/throttle", "/controls/engines/engine[2]/throttle", "/controls/engines/engine[3]/throttle"]
+scale = 1.0
+
+[body]
+# Relative to the repository root; no participant calibration.
+model = "assets/models/pose_landmarker_lite.task"
+camera = 0
+max_poses = 12
+camera_elevation_deg = 0
+preview = true
