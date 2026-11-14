@@ -16,18 +16,21 @@ is missing.
 
 ```sh
 cd /Users/jo/Documents/dev/flight-by-committee
-uv run --env-file .env --extra body --frozen \
-  fly run karlsruhe-747-hybrid --camera 0
+uv run --env-file .env --extra body --frozen fly
 ```
 
-1. Confirm the webcam preview shows the participants, including shoulders,
+1. In the browser operator, choose **Fly with bodies and phones**. This profile
+   uses camera **0**.
+2. Select **Check setup**, then **Launch these settings**.
+3. Confirm the webcam preview shows the participants, including shoulders,
    elbows and hips. Allow camera access in macOS if prompted.
-2. Wait for **Relay connected** and for **Waiting for approach readiness** to clear.
-3. Share the existing public participant invitation or its QR code. The invitation
+4. Wait for **Aircraft ready** in the operator. Open the local monitor link and
+   confirm the relay is connected.
+5. Share the existing public participant invitation or its QR code. The invitation
    includes the participant key; the bare homepage does not join the flight.
    Phones can use mobile data or any internet-connected Wi-Fi.
-4. Ask phone participants to select **Join flight controls**.
-5. Resume the paused flight in FlightGear. Keep the terminal open.
+6. Ask phone participants to select **Join flight controls**.
+7. Resume the paused flight in FlightGear. Keep the terminal open.
 
 ## During the flight
 
@@ -37,7 +40,10 @@ uv run --env-file .env --extra body --frozen \
   **Stop controlling** before switching from phone to body.
 - **Pause or reset:** use FlightGear on the computer.
 - **Stop camera input:** press **q** in the preview. Phones and flight continue;
-  restart the launcher to restore the camera.
+  select **Stop flight**, then **Launch these settings** to restart the flight
+  with camera input.
+- **Finish:** select **Stop flight** in the operator. Closing the browser does
+  not stop the flight. Press **Ctrl+C** in the terminal to close the operator.
 - **Connection loss:** the remaining source continues. The flight does not
   pause automatically.
 
