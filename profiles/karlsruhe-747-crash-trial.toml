@@ -1,0 +1,41 @@
+description = "Trial the upstream crash-and-stress system on the Boeing 747-400"
+warning = "Experimental damage trial; probabilistic failures, no automatic freeze. Use File > Reset between trials."
+installation = "nightly"
+location = "edsb-03-approach"
+rendering = "ws3-hdr"
+aircraft = "747-400"
+livery = "supercollective"
+initialisation = "747-400-approach"
+
+[flight]
+# 12 km final, nominal 3 degree path above the 124.36 m airport elevation.
+altitude_m = 768.3
+speed_m_s = 80.0
+glideslope_deg = -3.0
+wind_m_s = 0
+time_of_day = "noon"
+frozen = true
+engine_running = true
+
+[properties]
+"/controls/flight/flaps" = 1.0
+"/controls/gear/gear-down" = true
+"/controls/gear/brake-parking" = 0.0
+"/controls/flight/aileron" = 0.0
+"/controls/flight/elevator" = 0.0
+"/controls/flight/rudder" = 0.0
+"/controls/flight/speedbrake" = 0.0
+# Starting guess for JSBSim auto-trim; settled values are recorded by the harness.
+"/controls/engines/engine[0]/throttle" = 0.45
+"/controls/engines/engine[1]/throttle" = 0.45
+"/controls/engines/engine[2]/throttle" = 0.45
+"/controls/engines/engine[3]/throttle" = 0.45
+# Explicit 20,000 kg fuel, distributed symmetrically; native property uses kg.
+"/consumables/fuel/tank[0]/level-kg" = 0.0
+"/consumables/fuel/tank[1]/level-kg" = 5000.0
+"/consumables/fuel/tank[2]/level-kg" = 5000.0
+"/consumables/fuel/tank[3]/level-kg" = 5000.0
+"/consumables/fuel/tank[4]/level-kg" = 5000.0
+"/consumables/fuel/tank[5]/level-kg" = 0.0
+"/consumables/fuel/tank[6]/level-kg" = 0.0
+"/consumables/fuel/tank[7]/level-kg" = 0.0

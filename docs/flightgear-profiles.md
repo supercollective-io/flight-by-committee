@@ -104,6 +104,7 @@ time_of_day = "noon"
 A profile can reference `config/locations/*.toml` or include an inline
 `[location]` table with the same fields. Rendering presets in
 `config/rendering/*.fgfsrc` use one FlightGear option per line.
+Sound is enabled by default for every profile, including the aircraft sound switch.
 CLI overrides apply to one run; simulator UI changes do not update saved profiles.
 Changing installation may also require a different rendering preset.
 `--fg-root` resets the aircraft search path to that root's `Aircraft` directory.
@@ -123,3 +124,10 @@ Profiles may include a numeric/boolean `[properties]` table for aircraft-specifi
 initial state. An optional `initialisation` name loads `config/aircraft/NAME.xml`.
 Keep these separate from rendering presets; validate aircraft-specific state
 and scripts against the installed aircraft package.
+
+## Crash-and-stress experiment
+
+Every profile selecting `747-400` automatically gets [crash-and-stress effects](crash-stress-trial.md),
+including new profiles without a custom livery or approach initialiser. The separate
+crash-trial profile remains available for local simulator controls. Other aircraft
+keep their own damage behaviour.
