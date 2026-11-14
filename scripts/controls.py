@@ -23,6 +23,17 @@ def bounded_controls(values):
             raise ValueError('Invalid control range')
 
 
+def weighted_controls(*sources):
+    """Average source means by readable contributor counts, separately per axis."""
+    result = {}
+    for axis in AXES:
+        count = sum(counts[axis] for _, counts in sources)
+        result[axis] = (sum(values[axis] * counts[axis] for values, counts in sources
+                            if counts[axis]) / count if count else
+                        None if axis == 'throttle' else 0.0)
+    return result
+
+
 class State:
     def __init__(self, config, clock=time.monotonic):
         self.config, self.clock = config, clock

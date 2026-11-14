@@ -1,5 +1,8 @@
 # Phone aircraft controls
 
+For operator-selected camera input instead of phones, see [Body controls](body-controls.md).
+For simultaneous camera and phone contributions, see [Hybrid controls](hybrid-controls.md).
+
 The Karlsruhe landing profile now selects a shared phone input layout. Launch on
 the computer, then use phones for aircraft controls only:
 

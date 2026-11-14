@@ -11,6 +11,7 @@ import time
 from aiohttp import web, WSMsgType
 from scripts.runtime_origin import runtime_origin
 from scripts.controls import State, bounded_controls, generation_valid
+from scripts.hybrid_feedback import validate_feedback
 
 HERE = Path(__file__).parent
 
@@ -33,18 +34,33 @@ class Relay:
         self.bridge = None
         self.last_bridge = -float('inf')
         self.sockets = set()
+        self.hybrid = False
+        self.feedback = None
+        self.feedback_deadline = -float('inf')
 
     def reset(self):
         self.epoch = secrets.token_hex(16)
         self.state.invalidate()
         self.sequence = 0
+        self.feedback = None
+        self.feedback_deadline = -float('inf')
 
     def status(self):
         live = self.bridge is not None and self.clock() - self.last_bridge < .5
         if not live:
             self.state.connected = self.state.ready = False
             self.state.invalidate()
-        return dict(self.state.status(), relay=live, epoch=self.epoch)
+        result = dict(self.state.status(), relay=live, epoch=self.epoch)
+        if self.hybrid:
+            if live and self.state.ready and self.feedback and self.clock() < self.feedback_deadline:
+                result.update(self.feedback)
+                result['active'] = result['count'] > 0
+            else:
+                # Never label the phone-only mean as the combined aircraft command.
+                result.update(mode='hybrid', count=0, active=False, inputs=[],
+                              sources=dict(phone=0, camera=0), feedback_pending=True,
+                              collective=dict(roll=0, pitch=0, rudder=0, brake=0, throttle=None))
+        return result
 
     async def socket(self, request):
         role = request.match_info['role']
@@ -60,7 +76,7 @@ class Relay:
             raise web.HTTPForbidden()
         if len(self.sockets) >= 400 or (role == 'bridge' and self.bridge is not None):
             raise web.HTTPServiceUnavailable()
-        ws = web.WebSocketResponse(heartbeat=10, max_msg_size=4096)
+        ws = web.WebSocketResponse(heartbeat=10, max_msg_size=65536 if role == 'bridge' else 4096)
         await ws.prepare(request)
         self.sockets.add(ws)
         session = secrets.token_hex(16)  # A connection owns exactly one vote.
@@ -110,10 +126,11 @@ class Relay:
             raise ValueError('Invalid participant frame')
         if data['epoch'] != self.epoch:
             data = dict(data, challenge=None, controls=None, release_brakes=False)
-        return dict(self.state.exchange({k: data[k] for k in ('challenge', 'controls', 'release_brakes')} | {'session': session}), epoch=self.epoch)
+        response = self.state.exchange({k: data[k] for k in ('challenge', 'controls', 'release_brakes')} | {'session': session})
+        return response | self.status()
 
     def poll(self, data):
-        if set(data) != {'generation', 'ready', 'throttle', 'nonce'}:
+        if set(data) - {'feedback'} != {'generation', 'ready', 'throttle', 'nonce'}:
             raise ValueError('Invalid telemetry')
         if not generation_valid(data['generation']) or type(data['ready']) is not bool:
             raise ValueError('Invalid simulator generation/readiness')
@@ -122,6 +139,10 @@ class Relay:
         bounded_controls(dict(roll=0, pitch=0, rudder=0, brake=0, throttle=data['throttle']))
         if not isinstance(data['nonce'], str) or len(data['nonce']) != 32:
             raise ValueError('Invalid nonce')
+        feedback = data.get('feedback')
+        if 'feedback' in data:
+            validate_feedback(feedback)
+        self.hybrid = 'feedback' in data
         ready = data['ready']
         if data['generation'] != self.generation or ready != self.state.ready or self.clock() - self.last_bridge >= .5:
             self.reset()
@@ -130,13 +151,24 @@ class Relay:
         self.state.ready = ready
         self.state.connected = True
         self.state.throttle = data['throttle']
+        # Feedback refers to the previous phone aggregate, never feeds into votes.
+        # Subtract the whole poll interval as a conservative transit-age bound.
+        if (feedback and ready and feedback['epoch'] == self.epoch
+                and feedback['sequence'] == self.sequence):
+            remaining = feedback['valid_for'] - (self.clock() - self.last_bridge)
+            self.feedback = {k: v for k, v in feedback.items()
+                             if k not in ('epoch', 'sequence', 'valid_for')}
+            self.feedback_deadline = self.clock() + max(0, remaining)
+        elif not self.hybrid:
+            self.feedback = None
         self.last_bridge = self.clock()
         self.sequence += 1
-        status = self.status()
+        status = self.state.status()
         return dict(kind='aggregate', epoch=self.epoch, generation=self.generation,
                     sequence=self.sequence, nonce=data['nonce'], active=status['active'],
                     controls=status['collective'], brake_release=self.state.brake_release,
-                    count=status['count'], inputs=status['inputs'])
+                    count=status['count'], inputs=status['inputs'],
+                    **({'hybrid': True} if self.hybrid else {}))
 
     async def operator_sessions(self, request):
         token = request.headers.get('Authorization', '').removeprefix('Bearer ')

@@ -5,32 +5,37 @@
 <meta name="referrer" content="no-referrer">
 <title>Collective · Projection</title>
 <style>
-:root{font:18px/1.4 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#191919;background:transparent}*{box-sizing:border-box}body{margin:0;background:transparent}aside{position:absolute;right:2vw;bottom:3vh;width:min(320px,96vw);padding:20px;border-top:4px solid #191919;background:#f3f3ef}header{display:flex;justify-content:space-between;align-items:center;gap:12px}h1{margin:0;font-size:22px;letter-spacing:-.025em;font-weight:750}#count{background:#e3fa49;padding:3px 9px;font-weight:700}#status{font-size:14px;color:#555650;margin:12px 0 0}svg{display:block;width:100%;height:auto}#data[hidden]{display:none}.label{display:flex;justify-content:space-between;margin:12px 0 5px;font-size:16px}.track{height:7px;background:#d9dcd0;overflow:hidden}.fill{height:100%;background:#354f12;width:0}output{font-variant-numeric:tabular-nums;font-weight:600}
+:root{font:18px/1.4 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#191919;background:transparent}*{box-sizing:border-box}body{margin:0;background:transparent}aside{position:absolute;right:2vw;bottom:3vh;width:min(320px,96vw);padding:20px;border-top:4px solid #191919;background:#f3f3ef}header{display:flex;justify-content:space-between;align-items:center;gap:12px}h1{margin:0;font-size:22px;letter-spacing:-.025em;font-weight:750}#count{background:#e3fa49;padding:3px 9px;font-weight:700}#sources{font-size:14px;margin:10px 0 0}#status{font-size:14px;color:#555650;margin:12px 0 0}svg{display:block;width:100%;height:auto}#data[hidden]{display:none}.label{display:flex;justify-content:space-between;margin:12px 0 5px;font-size:16px}.track{height:7px;background:#d9dcd0;overflow:hidden}.fill{height:100%;background:#354f12;width:0}output{font-variant-numeric:tabular-nums;font-weight:600}
 </style>
 <aside><header><h1>Collective input</h1><span id="count">—</span></header><p id="status" role="status">Connecting…</p>
-<div id="data" hidden><svg viewBox="0 0 240 200" aria-label="Pitch and roll commands; dots are participants and ring is the collective">
+<p id="sources" hidden></p><div id="data" hidden><svg viewBox="0 0 240 200" aria-label="Pitch and roll commands; camera contributions are squares, phone contributions are dots; the ring is the collective">
 <path d="M120 25V175M30 100H210" stroke="#bfc1b8"/><g fill="#555650" font-size="11" text-anchor="middle"><text x="120" y="14">NOSE DOWN</text><text x="120" y="195">NOSE UP</text><text x="14" y="104">L</text><text x="226" y="104">R</text></g><g id="votes"></g></svg>
 <div class="label">Throttle <output id="throttle-value"></output></div><div class="track"><div id="throttle" class="fill"></div></div>
-<div class="label">Rudder <output id="rudder"></output></div>
+<div id="auxiliary-controls"><div class="label">Rudder <output id="rudder"></output></div>
 <div class="label">Brakes <output id="brake-value"></output></div><div class="track"><div id="brake" class="fill"></div></div>
+</div>
 </div></aside>
 <script>
 'use strict';
 const $=id=>document.getElementById(id),key=new URLSearchParams(location.search).get('key');
 let lastReply=null, problem=null, retryDelay=100, pollingStopped=false;
 function fail(message){problem=message;lost(message);}
-function lost(message){$('data').hidden=true;$('votes').innerHTML='';$('count').textContent='—';$('status').hidden=false;$('status').textContent=message;}
+function lost(message){$('sources').hidden=true;$('data').hidden=true;$('votes').innerHTML='';$('count').textContent='—';$('status').hidden=false;$('status').textContent=message;}
 function render(s){
+ $('auxiliary-controls').hidden=s.mode==='body';
  if(s.relay===false)return lost('Relay unavailable · flight continues');
  if(!s.simulator)return lost('FlightGear unavailable');
  if(!s.ready)return lost('Waiting for approach readiness');
+ $('sources').hidden=s.mode!=='hybrid';
+ $('sources').textContent=s.sources?`${s.sources.camera} camera + ${s.sources.phone} phone contributions · squares: camera; dots: phones; hollow: one axis unreadable`:'';
  $('count').textContent=String(s.count);
- $('status').hidden=s.active;
- $('status').textContent=s.active?'':'Nobody active · flight continues';
+ const problem=s.feedback_pending?'Updating combined controls…':s.mode==='hybrid'&&s.phone_available===false?'Phones disconnected · camera continues':s.mode==='hybrid'&&s.camera_available===false?'Camera unavailable · phones can continue':'';
+ $('status').hidden=s.active&&!problem;
+ $('status').textContent=problem||(s.active?'':'Nobody active · flight continues');
  $('data').hidden=!s.active;
  if(!s.active){$('votes').innerHTML='';return;}
  const g=s.collective;
- $('votes').innerHTML=s.inputs.map(v=>`<circle cx="${120+v.roll*85}" cy="${100+v.pitch*70}" r="3" fill="#191919" opacity=".5"/>`).join('')+`<circle cx="${120+g.roll*85}" cy="${100+g.pitch*70}" r="8" fill="none" stroke="#354f12" stroke-width="3"/>`;
+ $('votes').innerHTML=s.inputs.map(v=>v.source==='camera'?`<rect x="${117+(v.roll??0)*85}" y="${97+(v.pitch??0)*70}" width="6" height="6" fill="${v.pitch===null||v.roll===null?'none':'#191919'}" stroke="#191919" opacity=".65"/>`:`<circle cx="${120+v.roll*85}" cy="${100+v.pitch*70}" r="3" fill="#191919" opacity=".5"/>`).join('')+`<circle cx="${120+g.roll*85}" cy="${100+g.pitch*70}" r="8" fill="none" stroke="#354f12" stroke-width="3"/>`;
  for(const axis of ['throttle','brake']){const percent=Math.round((g[axis]??s.throttle)*100);$(axis).style.width=percent+'%';$(axis+'-value').textContent=percent+'%';}
  $('rudder').textContent=Math.abs(g.rudder)<.005?'Centred':`${g.rudder<0?'Left':'Right'} ${Math.round(Math.abs(g.rudder)*100)}%`;
 }

@@ -24,8 +24,10 @@ class RemoteState(phone.State):
         self.sequence = 0
         self.release_token = None
         self.relay_connected = False
+        self.invalidation = 0
 
     def invalidate(self):
+        self.invalidation += 1
         super().invalidate()
         self.frame = None
         self.received = -math.inf
@@ -55,8 +57,10 @@ class RemoteState(phone.State):
                     inputs=self.participants())
 
     def accept(self, frame, nonce, sent):
-        if not isinstance(frame, dict) or set(frame) != {'kind', 'epoch', 'generation', 'sequence', 'nonce', 'active', 'controls', 'brake_release', 'count', 'inputs'}:
+        if not isinstance(frame, dict) or set(frame) - {'hybrid'} != {'kind', 'epoch', 'generation', 'sequence', 'nonce', 'active', 'controls', 'brake_release', 'count', 'inputs'}:
             raise ValueError('Invalid aggregate shape')
+        if 'hybrid' in frame and frame['hybrid'] is not True:
+            raise ValueError('Invalid hybrid capability')
         bounded_controls(frame['controls'])
         if (frame['kind'] != 'aggregate' or frame['nonce'] != nonce or self.clock() - sent >= .5
                 or not generation_valid(frame['generation']) or frame['generation'] != self.generation
@@ -84,15 +88,15 @@ class RemoteState(phone.State):
         self.relay_connected = True
 
 
-async def connect(state, url, key, stop):
+async def connect(state, url, key, stop, feedback=None):
     parsed = urlsplit(url)
     if parsed.scheme != 'https' or not parsed.netloc or parsed.path not in ('', '/') or parsed.query or parsed.fragment:
         raise ValueError('FLIGHT_RELAY_URL must be an HTTPS origin')
     endpoint = url.rstrip('/') + '/ws/bridge'
-    await connection_loop(state, endpoint, key, stop)
+    await connection_loop(state, endpoint, key, stop, feedback)
 
 
-async def connection_loop(state, endpoint, key, stop):
+async def connection_loop(state, endpoint, key, stop, feedback=None):
     last_status = None
     timeout = aiohttp.ClientTimeout(total=3, sock_connect=2)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -103,16 +107,25 @@ async def connection_loop(state, endpoint, key, stop):
                         state.invalidate()  # Never resume a previous aggregate on reconnect.
                     while not stop.is_set():
                         with state.lock:
+                            combined = feedback() if feedback else None
                             generation, ready = state.generation, state.ready
                             throttle = state.throttle
+                            invalidation = state.invalidation
                         if not generation_valid(generation):
                             await asyncio.sleep(.1)
                             continue
                         nonce = secrets.token_hex(16)
                         sent = state.clock()
-                        await ws.send_json(dict(generation=int(generation), ready=ready, throttle=throttle, nonce=nonce))
+                        telemetry = dict(generation=int(generation), ready=ready, throttle=throttle, nonce=nonce)
+                        if feedback:
+                            telemetry['feedback'] = combined
+                        await ws.send_json(telemetry)
                         frame = await asyncio.wait_for(ws.receive_json(), .5)
                         with state.lock:
+                            if state.invalidation != invalidation:
+                                raise ValueError('Simulator changed during relay poll')
+                            if feedback and frame.get('hybrid') is not True:
+                                raise ValueError('Relay does not support hybrid controls')
                             state.accept(frame, nonce, sent)
                         await asyncio.sleep(.1)
             except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, TypeError, RuntimeError):
@@ -121,14 +134,16 @@ async def connection_loop(state, endpoint, key, stop):
                     state.invalidate()
                 await asyncio.sleep(.3)
             with state.lock:
-                status = 'Relay connected' if state.relay_connected else 'Relay unavailable — momentary controls released; throttle retained; flight continues'
+                status = ('Relay connected' if state.relay_connected else
+                          'Phones disconnected — camera contributions continue' if feedback else
+                          'Relay unavailable — momentary controls released; throttle retained; flight continues')
             if status != last_status:
                 print(status, flush=True)
                 last_status = status
 
 
 @contextmanager
-def running(config, simulator_port):
+def running(config, simulator_port, *, state=None):
     """Hosted mode owns the simulator writer; local routes are read-only observers."""
     url, key = os.environ['FLIGHT_RELAY_URL'], os.environ['FLIGHT_BRIDGE_KEY']
     if len(key) < 24:
@@ -136,7 +151,9 @@ def running(config, simulator_port):
     parsed = urlsplit(url)
     if parsed.scheme != 'https' or not parsed.netloc or parsed.path not in ('', '/') or parsed.query or parsed.fragment:
         raise ValueError('FLIGHT_RELAY_URL must be an HTTPS origin')
-    state = RemoteState(config)
+    state = state if state is not None else RemoteState(config)
+    remote = getattr(state, 'phone', state)
+    feedback = getattr(state, 'feedback', None)
     secret = secrets.token_urlsafe(24)
     # This local server exposes status/projection, never a second active input route.
     handler = phone.handler_for(state, secret)
@@ -149,7 +166,7 @@ def running(config, simulator_port):
     stop = threading.Event()
     threads = [threading.Thread(target=server.serve_forever, daemon=True),
                threading.Thread(target=phone.bridge, args=(state, simulator_port, stop), daemon=True),
-               threading.Thread(target=lambda: asyncio.run(connect(state, url, key, stop)), daemon=True)]
+               threading.Thread(target=lambda: asyncio.run(connect(remote, url, key, stop, feedback)), daemon=True)]
     state.projection_url = f'http://127.0.0.1:{server.server_port}/projection?key={secret}'
     print(f'Hosted controls: {url}\nLocal projection: {state.projection_url}\n'
           f'Local monitor: http://127.0.0.1:{server.server_port}/?key={secret}&monitor=1\n'

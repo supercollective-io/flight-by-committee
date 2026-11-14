@@ -1,10 +1,12 @@
 # Hosted Flight controls
 
-The public participant interface is intended for
+The public participant interface is deployed at
 [fly.supercollective.io](https://fly.supercollective.io). It returns to
 [Rehearsing We](https://we.supercollective.io). The relay runs independently of
-Polymind and keeps anonymous Flight identities separate. This repository prepares
-the service; no public deployment or physical rehearsal is claimed here.
+Polymind and keeps anonymous Flight identities separate. Public HTTPS and service health were checked on 12 November 2026: the homepage
+and `/healthz` returned 200, the browser rendered the invitation instructions,
+and anonymous `/status`, `/projection` and `/relay.js` requests returned 403.
+Authenticated controls, simulator response and physical rehearsal remain unverified.
 
 ## One-command local launch
 
@@ -179,7 +181,8 @@ connections creates multiple votes. Do not run multiple relay workers or replica
 is connected. The image's native Python health check uses it. The image runs as
 UID 10001 and installs from `uv.lock`. Build and smoke-test on the server's target
 architecture before performance. Current local Docker verification is recorded
-below; DNS, certificate provisioning and live Coolify routing remain operator work.
+below. Public DNS, certificate validation and HTTPS routing passed on 12 November
+2026; exact running image provenance and private Coolify configuration remain unverified.
 
 ## Local simulator computer
 
@@ -243,6 +246,26 @@ Before releasing a performance version:
 6. Measure phone-to-visible-aircraft response under actual crowd/network load;
    use p95 below 250 ms as the initial target, then assess with people.
 
+## Hybrid camera and phone input
+
+[Hybrid controls](hybrid-controls.md) combines local camera poses with the relay's
+phone aggregate through one local simulator writer. Deploy the hybrid-capable
+relay before running the new bridge: older relays reject the additional telemetry.
+The updated relay retains the original phone-only protocol. Preparation and local
+tests do not deploy this change.
+
+Hybrid bridge telemetry adds bounded, display-only `feedback`: relay epoch and
+sequence, remaining validity, combined controls, anonymous command dots, source
+counts and per-axis counts. The relay acknowledges hybrid support and still
+returns only phone contributions to the bridge. It never feeds combined feedback
+back into aggregation. The relay discounts feedback validity by the poll interval,
+clears it on reset/reconnect, and hides expired combined results. Bridge WebSocket
+frames allow up to 65,536 bytes for these bounded displays; participant frames
+retain their 4,096-byte limit. Camera images and landmarks remain local.
+
+Hosted local routes remain read-only, including in hybrid mode. Relay loss removes
+phone votes without cancelling camera votes. Reset still clears both input sources.
+
 ## LAN fallback
 
 The original route remains available and tested. Stop the hosted launch, then:
@@ -282,7 +305,9 @@ UID 10001 check, phone/projection asset checks, authenticated participant-to-
 bridge aggregate exchange, observer count and bridge-loss visibility. The
 container was stopped after the trial. Its local image identifier was
 `sha256:20eab264f4dd429d448a3f3958a7bd0557cc9e763935ca0d71184807c87eb969`. No remote image was published;
-an amd64 server build and public HTTPS/FlightGear rehearsal remain unverified.
+an amd64 server build and end-to-end HTTPS/FlightGear rehearsal remain unverified.
+The later public HTTPS/health checks above confirm availability, not that this
+local image is the deployed artefact.
 
 The implementation started from commit `5f716af` plus reviewed existing
 phone/projection work captured separately as `da7907e`. The original migration
