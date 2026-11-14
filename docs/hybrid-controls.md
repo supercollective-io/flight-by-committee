@@ -1,5 +1,8 @@
 # Camera and phone controls together
 
+For launch commands and session controls, use the
+[operator cheat sheet](operator-cheat-sheet.md).
+
 Hybrid mode lets people use body gestures or the phone controls in the same
 flight. Choose one method at a time: lower your arms while using a phone, and
 select **Stop controlling** on the phone before contributing with your body.

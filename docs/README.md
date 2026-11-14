@@ -6,6 +6,8 @@ The project prefers open source. The venue, simulator and final control arrangem
 
 ## Start here
 
+- [Hybrid operator cheat sheet](operator-cheat-sheet.md): launch webcam 0 with phones joining over the internet.
+
 - [Local operator app](local-operator.md): run `uv run fly` to choose, edit, save and launch profiles.
 
 - [747-400 landing at Karlsruhe](karlsruhe-747.md): launch and validate the target Nightly/HDR/WS3 scenario.
