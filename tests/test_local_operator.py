@@ -57,6 +57,29 @@ class OperatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(detail['location']['latitude_deg'], 52.3086)
         self.assertIn('--altitude=600', detail['effective']['command'])
 
+    async def test_camera_profiles_survive_operator_save_and_resolution(self):
+        catalogue = await (await self.client.get('/api/profiles', headers=self.headers)).json()
+        for mode in ('body', 'hybrid'):
+            with self.subTest(mode=mode):
+                name = 'karlsruhe-747-' + mode
+                self.assertIn(name, [p['name'] for p in catalogue['profiles']])
+                response = await self.client.get('/api/profiles/' + name, headers=self.headers)
+                self.assertEqual(response.status, 200)
+                detail = await response.json()
+                settings = detail['effective']['input']
+                self.assertEqual(settings['mode'], mode)
+                self.assertEqual(settings['body']['camera'], 0)
+                self.payload = {'name': 'local-' + mode, 'profile': detail['profile']}
+                response = await self.post('profiles')
+                self.assertEqual(response.status, 200, await response.text())
+                saved = await response.json()
+                self.assertEqual(saved['effective']['input'], settings)
+                resolved = fg.resolve('local-' + mode, root=self.root)
+                self.assertIsNotNone(resolved['livery_overlay'])
+                if mode == 'body':
+                    self.assertEqual(settings['owned_axes'], ['roll', 'pitch'])
+                    self.assertFalse(settings['throttle_enabled'])
+
     async def test_save_inline_location_round_trip_and_conflicts(self):
         original = (self.root / 'profiles/amsterdam-explore.toml').read_bytes()
         self.payload['profile']['location'] = {'latitude_deg':40.2, 'longitude_deg':-3.5, 'heading_deg':150, 'on_ground':False}

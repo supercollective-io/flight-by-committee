@@ -58,6 +58,7 @@ class ProfileTests(unittest.TestCase):
         resolved = self.resolve('karlsruhe-747-takeoff')
         config = resolved['input_config']
         self.assertEqual(resolved['profile']['input'], 'phone-takeoff')
+        self.assertEqual(config['mode'], 'phone')
         self.assertEqual(config['ready_property'], '/sim/signals/fdm-initialized')
         self.assertIn('/controls/gear/brake-parking', config['brake_release_paths'])
         self.assertEqual(len(config['controls']['throttle']['paths']), 4)

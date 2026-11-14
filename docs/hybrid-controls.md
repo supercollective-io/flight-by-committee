@@ -15,7 +15,8 @@ First install the optional camera dependencies and local pose model using
 uv run --extra body --frozen fly run karlsruhe-747-hybrid
 ```
 
-The launcher menu also offers **Fly with bodies and phones**. Camera defaults
+Run `uv run --extra body --frozen fly` to open the [local operator app](local-operator.md),
+then select **Fly with bodies and phones** from its profile list. Camera defaults
 live in `config/inputs/hybrid-landing.toml`. Camera overrides, including
 `--camera 1` and `--no-camera-preview`, work as in body mode. To combine sources
 with the existing body profile, use:

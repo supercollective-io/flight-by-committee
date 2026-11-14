@@ -31,19 +31,20 @@ record frames or store participant identities.
 From the project folder, start the body-controlled landing with:
 
 ```sh
-uv run fly run karlsruhe-747-body
+uv run --extra body --frozen fly run karlsruhe-747-body
 ```
 
-Or run `uv run fly` and choose **Fly with your body** from the
-profile list. The profile selects the Karlsruhe landing, the downloaded local
+Or run `uv run --extra body --frozen fly` to open the
+[local operator app](local-operator.md), then select **Fly with your body**
+from its profile list. The profile selects the Karlsruhe landing, the downloaded local
 model, camera 0, a maximum of 12 poses and the camera preview. These defaults
 live in `config/inputs/body-landing.toml`; the model path is relative to the
 repository root. Adjust that file for the venue instead of repeating flags.
 
 Command-line overrides still work, such as `--camera 1`,
 `--camera-elevation-deg 20` or `--no-camera-preview`.
-The one-time `uv sync --extra body --frozen` above installs camera dependencies;
-repeat it if a later environment sync removes them.
+Keep `--extra body` on operator-app and flight launches so uv retains the
+optional camera dependencies.
 
 For a different flight profile or a launch without the preview, use the full
 launcher: `uv run --extra body fly run PROFILE --input-mode body --pose-model
