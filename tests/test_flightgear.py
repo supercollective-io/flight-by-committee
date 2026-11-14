@@ -31,6 +31,8 @@ class ProfileTests(unittest.TestCase):
         for path in (self.root / 'profiles').glob('*.toml'):
             result = self.resolve(path.stem)
             self.assertIn('--no-default-config', result['command'])
+            self.assertIn('--enable-sound', result['command'])
+            self.assertIn('--prop:/sim/sound/switch=true', result['command'])
         self.assertFalse((self.root / 'test-results').exists())
 
     def test_amsterdam_retains_scenery_and_airborne_workaround(self):

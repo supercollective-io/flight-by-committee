@@ -144,11 +144,11 @@ def resolve(profile_name, *, root=None, overrides=None, profile_data=None):
             raise ValueError(f'{preset}: invalid or profile-managed option {option!r}')
     aircraft_dirs = list(install['aircraft_dirs'])
     livery_overlay = None
-    if 'livery' in profile:
+    if profile['aircraft'] == '747-400':
         livery_overlay = str((root / 'test-results/liveries' / uuid.uuid4().hex).resolve())
         aircraft_dirs.insert(0, livery_overlay)
     command = [install['binary'], '--launcher=false', '--ignore-autosave', '--no-default-config',
-               '--disable-sentry', '--units-meters', f"--fg-root={install['fg_root']}",
+               '--disable-sentry', '--enable-sound', '--prop:/sim/sound/switch=true', '--units-meters', f"--fg-root={install['fg_root']}",
                f"--fg-aircraft={os.pathsep.join(aircraft_dirs)}", f"--aircraft={profile['aircraft']}"]
     if 'scenery' in install:
         command.append(f"--terrasync-dir={install['scenery']}")
